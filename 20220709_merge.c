@@ -14,19 +14,41 @@ void printArray(int* a, int size);
 int main(int argc, char* argv[]) {
     srand(time(NULL));
 
-    // Handle user input
-    if (argc < 2) {
+    // user input
+    if (argc != 2) {
         printf("Usage: %s <number of elements>\n", argv[0]);
         return 1;
     }
-    int n = atoi(argv[1]);
-    int* array = (int*)malloc(n * sizeof(int));
-    for (int i = 0; i < n; i++) {
-        array[i] = rand() % 100; // Random numbers between 0 and 99
+
+    int n = atoi(argv[1]);  // Number of elements in array
+
+    if (n <= 0) {
+        printf("Number of elements must be positive.\n");
+        return 1;
     }
 
-    printf("Data before sorting:\n");
-    printArray(array, n);
+    int* data = (int*)malloc(sizeof(int) * n);
+    int* data_asm = (int*)malloc(sizeof(int) * n);
+
+    if (!data || !data_asm) {
+        printf("Memory allocation failed.\n");
+        return 1;
+    }
+
+    // variable intialization
+    for (int i = 0; i < n; i++) {
+        data[i] = rand() % 100;  // Random values between 0 and 99
+        data_asm[i] = data[i];   // Copy to assembly data array
+    }
+
+    // print data before sorting
+    if (n <= 20) {
+        printf("Before sort     : [ ");
+        for (int i = 0; i < n; i++) {
+            printf("%d ", data[i]);
+        }
+        printf("]\n");
+    }
 
     // Time measurement setup
     clock_t begin1, end1;
@@ -34,25 +56,38 @@ int main(int argc, char* argv[]) {
 
     // Sorting with C implementation
     begin1 = clock();
-    mergesort_C(array, 0, n - 1);
+    mergesort_C(data, 0, n - 1);
     end1 = clock();
     double elapsed_c = (double)(end1 - begin1) / CLOCKS_PER_SEC;
 
-    printf("Data after sorting (C):\n");
-    printArray(array, n);
-    printf("Execution Time (C): %f[s]\n", elapsed_c);
-
     // Sorting with Assembly implementation
     begin2 = clock();
-    mergesort_ASM(array, 0, n - 1);
+    mergesort_ASM(data_asm, 0, n - 1);
     end2 = clock();
     double elapsed_asm = (double)(end2 - begin2) / CLOCKS_PER_SEC;
 
-    printf("Data after sorting (ASM):\n");
-    printArray(array, n);
-    printf("Execution Time (ASM): %f[s]\n", elapsed_asm);
+    // print data after sorting
+    if (n <= 20) {
+        printf("After sort   (C): [ ");
+        for (int i = 0; i < n; i++) {
+            printf("%d ", data[i]);
+        }
+        printf("]\n");
 
-    free(array);
+        printf("After sort (ASM): [ ");
+        for (int i = 0; i < n; i++) {
+            printf("%d ", data_asm[i]);
+        }
+        printf("]\n");
+    }
+
+    // print run time
+    printf("Execution Time   (C): %.9lf [sec]\n", elapsed_c);
+    printf("Execution Time (ASM): %.9lf [sec]\n", elapsed_asm);
+
+    free(data);
+    free(data_asm);
+    
     return 0;
 }
 
