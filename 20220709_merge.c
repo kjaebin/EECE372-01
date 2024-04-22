@@ -14,48 +14,19 @@ void printArray(int* a, int size);
 int main(int argc, char* argv[]) {
     srand(time(NULL));
 
-    // user input
-    if (argc != 2) {
+    // Handle user input
+    if (argc < 2) {
         printf("Usage: %s <number of elements>\n", argv[0]);
         return 1;
     }
-
-    int n = atoi(argv[1]);  // Number of elements in array
-
-    if (n <= 0) {
-        printf("Number of elements must be positive.\n");
-        return 1;
+    int n = atoi(argv[1]);
+    int* array = (int*)malloc(n * sizeof(int));
+    for (int i = 0; i < n; i++) {
+        array[i] = rand() % 100; // Random numbers between 0 and 99
     }
 
-    int* data = (int*)malloc(sizeof(int) * n);
-    int* data_asm = (int*)malloc(sizeof(int) * n);
-
-    if (!data || !data_asm) {
-        printf("Memory allocation failed.\n");
-        return 1;
-    }
-
-    // variable intialization
-    int i = 0;
-    for (i = 0; i < n; i++) data[i] = i + 1;
-
-    // Shuffle the elements of array randomly
-    for (i = 0; i < n - 1; i++) {
-        int r = rand() % (n - i) + i;
-        int temp = data[i];
-        data[i] = data[r];
-        data[r] = temp;
-    }
-    for (i = 0; i < n; i++) data_asm[i] = data[i];   // Copy to assembly data array
-
-    // print data before sorting
-    if (n <= 20) {
-        printf("Before sort     : [ ");
-        for (int i = 0; i < n; i++) {
-            printf("%d ", data[i]);
-        }
-        printf("]\n");
-    }
+    printf("Data before sorting:\n");
+    printArray(array, n);
 
     // Time measurement setup
     clock_t begin1, end1;
@@ -63,38 +34,25 @@ int main(int argc, char* argv[]) {
 
     // Sorting with C implementation
     begin1 = clock();
-    mergesort_C(data, 0, n - 1);
+    mergesort_C(array, 0, n - 1);
     end1 = clock();
     double elapsed_c = (double)(end1 - begin1) / CLOCKS_PER_SEC;
 
+    printf("Data after sorting (C):\n");
+    printArray(array, n);
+    printf("Execution Time (C): %f[s]\n", elapsed_c);
+
     // Sorting with Assembly implementation
     begin2 = clock();
-    mergesort_ASM(data_asm, 0, n - 1);
+    mergesort_ASM(array, 0, n - 1);
     end2 = clock();
     double elapsed_asm = (double)(end2 - begin2) / CLOCKS_PER_SEC;
 
-    // print data after sorting
-    if (n <= 20) {
-        printf("After sort   (C): [ ");
-        for (int i = 0; i < n; i++) {
-            printf("%d ", data[i]);
-        }
-        printf("]\n");
+    printf("Data after sorting (ASM):\n");
+    printArray(array, n);
+    printf("Execution Time (ASM): %f[s]\n", elapsed_asm);
 
-        printf("After sort (ASM): [ ");
-        for (int i = 0; i < n; i++) {
-            printf("%d ", data_asm[i]);
-        }
-        printf("]\n");
-    }
-
-    // print run time
-    printf("Execution Time   (C): %.6lf [sec]\n", elapsed_c);
-    printf("Execution Time (ASM): %.6lf [sec]\n", elapsed_asm);
-
-    free(data);
-    free(data_asm);
-    
+    free(array);
     return 0;
 }
 
@@ -152,83 +110,132 @@ void merge_C(int* a, int low, int mid, int high) {
 }
 
 void mergesort_ASM(int* a, int low, int high) {
-    printf("mergesort_ASM called with low=%d, high=%d\n", low, high);
-    if (low < high) {
-        int mid = low + (high - low) / 2;
-        printf("Dividing: low=%d, mid=%d, high=%d\n", low, mid, high);
+    // Inline assembly for full mergesort including recursion and merging
+    asm(
+        // Check if low < high, if not, return
+        "cmp %[low], %[high] \n"
+        "bge .end \n"
 
-        mergesort_ASM(a, low, mid);
-        mergesort_ASM(a, mid + 1, high);
+        // Calculate middle index
+        "add r3, %[low], %[high] \n"
+        "asr r3, r3, #1 \n" // equivalent to (low + high) / 2
 
-        merge_ASM(a, low, mid, high);
-    }
+        // Recursive call on the first half
+        "sub sp, sp, #32 \n"    // Allocate stack space for parameters + return address
+        "str lr, [sp, #24] \n"  // Save return address
+        "str r3, [sp, #20] \n"  // Save mid value for later use
+        "str %[high], [sp, #16] \n" // Save high parameter
+        "str %[low], [sp, #12] \n"  // Save low parameter
+        "mov %[high], r3 \n"
+        "bl .recursion \n"      // Branch to recursion label
+        "ldr %[high], [sp, #16] \n" // Restore high parameter
+        "ldr lr, [sp, #24] \n"       // Restore return address
+
+        // Recursive call on the second half
+        "ldr %[low], [sp, #12] \n"  // Restore low parameter
+        "ldr r3, [sp, #20] \n"      // Restore mid value
+        "add r3, r3, #1 \n"         // mid + 1
+        "str r3, [sp, #20] \n"      // Save new mid value
+        "mov %[low], r3 \n"
+        "bl .recursion \n"
+        "ldr lr, [sp, #24] \n"       // Restore return address
+
+        // Call merge function
+        "ldr %[low], [sp, #12] \n"  // Restore low parameter
+        "ldr r3, [sp, #20] \n"      // Restore mid value
+        "mov %[mid], r3 \n"
+        "bl merge_ASM \n" // Merge function must be implemented properly in assembly
+
+        ".recursion: \n"
+        "bl mergesort_ASM \n" // Recursive call to self (mergesort_ASM)
+        "b .return_from_call \n"
+
+        ".return_from_call: \n"
+        "add sp, sp, #32 \n"         // Deallocate stack space
+        "bx lr \n"                   // Return from function using link register
+
+        ".end: \n"
+        :
+        : [a] "r" (a), [low] "r" (low), [high] "r" (high), [mid] "r" (r3)
+        : "r3", "memory", "cc"
+        );
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
-    // Allocate memory for the temporary array
+    // Temporary array to hold merged results
     int* temp = (int*)malloc((high - low + 1) * sizeof(int));
     if (!temp) {
         perror("Memory allocation failed");
         return;
     }
 
-    // Print the initial state of the array segment being merged
-    printf("Initial array (a) state for merge:\n");
+    printf("Initial array (a) state:\n");
     for (int idx = low; idx <= high; idx++) {
         printf("%d ", a[idx]);
     }
     printf("\n");
 
+    // Initialize pointers and indexes
     int i = low, j = mid + 1, k = 0;
 
-    // Inline assembly for merging two sorted halves
+    // Inline assembly block to perform the merging operation
     asm volatile (
-        "1:\n"                               // Label for the top of the merge loop
-        "cmp %1, %3\n"                       // Compare i with mid
-        "bgt 2f\n"                           // If i > mid, jump to process the right half
-        "cmp %2, %5\n"                       // Compare j with high
-        "bgt 3f\n"                           // If j > high, jump to process the left half
+        "1:\n" // Loop label
+        "cmp %1, %3\n" // Compare i and mid
+        "bgt 2f\n" // If i > mid, jump to 2
+        "cmp %2, %5\n" // Compare j and high
+        "bgt 3f\n" // If j > high, jump to 3
 
-        "ldr r6, [%0, %1, lsl #2]\n"         // Load a[i] into r6
-        "ldr r7, [%0, %2, lsl #2]\n"         // Load a[j] into r7
-        "cmp r6, r7\n"                       // Compare the elements a[i] and a[j]
-        "ble 4f\n"                           // If a[i] <= a[j], go to store a[i] in temp
+        // Load elements from both halves
+        "ldr r6, [%0, %1, lsl #2]\n" // Load a[i] into r6
+        "ldr r7, [%0, %2, lsl #2]\n" // Load a[j] into r7
 
-        "str r7, [%4, %6, lsl #2]\n"         // Store a[j] in temp[k]
-        "add %2, %2, #1\n"                   // Increment j
-        "b 5f\n"                             // Jump to increment k
+        // Compare elements
+        "cmp r6, r7\n"
+        "ble 4f\n" // If a[i] <= a[j], go to 4
 
-        "4:\n"                               // Label to store a[i] in temp
-        "str r6, [%4, %6, lsl #2]\n"         // Store a[i] in temp[k]
-        "add %1, %1, #1\n"                   // Increment i
+        // Store a[j] in temp[k], increment j and k
+        "str r7, [%4, %6, lsl #2]\n"
+        "add %2, %2, #1\n"
+        "b 5f\n"
 
-        "5:\n"                               // Label to increment k and loop back
-        "add %6, %6, #1\n"                   // Increment k
-        "b 1b\n"                             // Jump back to the top of the loop
+        "4:\n" // Store a[i] in temp[k], increment i and k
+        "str r6, [%4, %6, lsl #2]\n"
+        "add %1, %1, #1\n"
 
-        "2:\n"                               // Label to process remaining right half elements
-        "ldr r6, [%0, %2, lsl #2]\n"         // Load a[j] into r6
-        "str r6, [%4, %6, lsl #2]\n"         // Store a[j] in temp[k]
-        "add %2, %2, #1\n"                   // Increment j
-        "add %6, %6, #1\n"                   // Increment k
-        "b 2b\n"                             // Continue processing the right half
+        "5:\n" // Increment k and loop back
+        "add %6, %6, #1\n"
+        "b 1b\n"
 
-        "3:\n"                               // Label to process remaining left half elements
-        "ldr r6, [%0, %1, lsl #2]\n"         // Load a[i] into r6
-        "str r6, [%4, %6, lsl #2]\n"         // Store a[i] in temp[k]
-        "add %1, %1, #1\n"                   // Increment i
-        "add %6, %6, #1\n"                   // Increment k
-        : "+r" (i), "+r" (j), "+r" (k)       // Output operands
+        "2:\n" // Handle remaining elements from right half
+        "ldr r6, [%0, %2, lsl #2]\n"
+        "str r6, [%4, %6, lsl #2]\n"
+        "add %2, %2, #1\n"
+        "add %6, %6, #1\n"
+        "b 2b\n"
+
+        "3:\n" // Handle remaining elements from left half
+        "ldr r6, [%0, %1, lsl #2]\n"
+        "str r6, [%4, %6, lsl #2]\n"
+        "add %1, %1, #1\n"
+        "add %6, %6, #1\n"
+        : "+r" (i), "+r" (j), "+r" (k)  // Output operands
         : "r" (mid), "r" (high), "r" (temp), "r" (a) // Input operands
-        : "r6", "r7", "cc", "memory"         // Clobbers
-    );
+        : "r6", "r7", "cc", "memory" // Clobbers
+        );
 
-    // Copy the merged temporary array back to the original array segment
+    printf("Temporary array (temp) state:\n");
+    for (int idx = 0; idx < (high - low + 1); idx++) {
+        printf("%d ", temp[idx]);
+    }
+    printf("\n");
+
+    // Copy from temp back to array
     for (i = low, k = 0; i <= high; i++, k++) {
         a[i] = temp[k];
     }
 
-    printf("Merged array segment:\n");
+    printf("Final sorted array part:\n");
     for (int idx = low; idx <= high; idx++) {
         printf("%d ", a[idx]);
     }
