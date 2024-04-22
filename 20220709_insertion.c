@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
     int i = 0;
     for (i = 0; i < n; i++) data[i] = i+1;
 
-    // Shuffle the elements of array 'a' randomly
+    // Shuffle the elements of array randomly
     for (i = 0; i < n - 1; i++) {
         int r = rand() % (n - i) + i;
         int temp = data[i];
@@ -85,8 +85,8 @@ int main(int argc, char* argv[]) {
     }
 
 	// print run time
-    printf("Execution Time   (C): %.9lf [sec]\n", elapsed_c);
-    printf("Execution Time (ASM): %.9lf [sec]\n", elapsed_asm);
+    printf("Execution Time   (C): %.6lf [sec]\n", elapsed_c);
+    printf("Execution Time (ASM): %.6lf [sec]\n", elapsed_asm);
 
     free(data);
     free(data_asm);
