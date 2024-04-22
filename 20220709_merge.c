@@ -152,97 +152,56 @@ void merge_C(int* a, int low, int mid, int high) {
 }
 
 void mergesort_ASM(int* a, int low, int high) {
+    printf("mergesort_ASM called with low=%d, high=%d\n", low, high);
     if (low < high) {
         int mid = low + (high - low) / 2;
+        printf("Dividing: low=%d, mid=%d, high=%d\n", low, mid, high);
 
-        // Recursively sort both halves (still in C for recursion management)
         mergesort_ASM(a, low, mid);
         mergesort_ASM(a, mid + 1, high);
 
-        // Use inline assembly for merging; already implemented in merge_ASM
         merge_ASM(a, low, mid, high);
     }
 }
 
-#include <stdio.h>
-#include <stdlib.h>
-
 void merge_ASM(int* a, int low, int mid, int high) {
-    // Temporary array to hold merged results
+    printf("merge_ASM called with low=%d, mid=%d, high=%d\n", low, mid, high);
+
     int* temp = (int*)malloc((high - low + 1) * sizeof(int));
     if (!temp) {
         perror("Memory allocation failed");
         return;
     }
 
-    // Print initial array state for debugging
-    printf("Initial array (a) state:\n");
+    printf("Initial array (a) state from low to high:\n");
     for (int idx = low; idx <= high; idx++) {
         printf("%d ", a[idx]);
     }
     printf("\n");
 
-    // Initialize pointers and indexes
     int i = low, j = mid + 1, k = 0;
 
-    // Inline assembly block to perform the merging operation
-    asm(
-        "1: \n" // Loop label
-        "cmp %[i], %[mid] \n" // Compare i and mid
-        "bgt 2f \n" // If i > mid, jump to 2
-        "cmp %[j], %[high] \n" // Compare j and high
-        "bgt 3f \n" // If j > high, jump to 3
-
-        // Load elements from both halves
-        "ldr r6, [%[a], %[i], lsl #2] \n" // Load a[i] into r6
-        "ldr r7, [%[a], %[j], lsl #2] \n" // Load a[j] into r7
-
-        // Compare elements
-        "cmp r6, r7 \n"
-        "ble 4f \n" // If a[i] <= a[j], go to 4
-
-        // Store a[j] in temp[k], increment j and k
-        "str r7, [%[temp], %[k], lsl #2] \n"
-        "add %[j], %[j], #1 \n"
-        "b 5f \n"
-
-        "4: \n" // Store a[i] in temp[k], increment i and k
-        "str r6, [%[temp], %[k], lsl #2] \n"
-        "add %[i], %[i], #1 \n"
-
-        "5: \n" // Increment k and loop back
-        "add %[k], %[k], #1 \n"
-        "b 1b \n"
-
-        "2: \n" // Handle remaining elements from right half
-        "cmp %[j], %[high] \n"
-        "bgt 3f \n"
-        "ldr r6, [%[a], %[j], lsl #2] \n"
-        "str r6, [%[temp], %[k], lsl #2] \n"
-        "add %[j], %[j], #1 \n"
-        "add %[k], %[k], #1 \n"
-        "b 2b \n"
-
-        "3: \n" // Handle remaining elements from left half
-        : [temp] "=r"(temp), [i]"=r"(i), [j]"=r"(j), [k]"=r"(k) // Output
-        : [a] "r"(a), [mid] "r"(mid), [low] "r"(low), [high] "r"(high) // Input
-        : "r6", "r7", "memory" // Clobbers
-    );
-
-    // Print resulting temporary array for debugging
-    printf("Temporary array (temp) state:\n");
-    for (int idx = 0; idx <= (high - low); idx++) {
-        printf("%d ", temp[idx]);
+    while (i <= mid && j <= high) {
+        if (a[i] <= a[j]) {
+            temp[k++] = a[i++];
+        } else {
+            temp[k++] = a[j++];
+        }
     }
-    printf("\n");
 
-    // Copy from temp back to array
+    while (i <= mid) {
+        temp[k++] = a[i++];
+    }
+
+    while (j <= high) {
+        temp[k++] = a[j++];
+    }
+
     for (i = low, k = 0; i <= high; i++, k++) {
         a[i] = temp[k];
     }
 
-    // Print final sorted array part for debugging
-    printf("Final sorted array part:\n");
+    printf("Merged array (a) state from low to high after merging:\n");
     for (int idx = low; idx <= high; idx++) {
         printf("%d ", a[idx]);
     }
