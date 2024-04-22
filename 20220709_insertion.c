@@ -163,83 +163,65 @@ void mergesort_ASM(int* a, int low, int high) {
     }
 }
 
-#include <stdlib.h>
-
 void merge_ASM(int* a, int low, int mid, int high) {
-    int n1 = mid - low + 1;
-    int n2 = high - mid;
-    int* L = malloc(n1 * sizeof(int)); // Left subarray
-    int* R = malloc(n2 * sizeof(int)); // Right subarray
+    asm (
+        "mov %[low], %[low]\n"  // Example to pass variable from C to asm
+        "mov %[mid], %[mid]\n"
+        "mov %[high], %[high]\n"
+        "mov r1, %[a]\n"  // Base address of the array
 
-    // Copy data to temporary subarrays L[] and R[]
-    for (int i = 0; i < n1; i++) L[i] = a[low + i];
-    for (int i = 0; i < n2; i++) R[i] = a[mid + 1 + i];
+        // Initialize pointers for array indices
+        "add r2, r1, %[low], lsl #2\n"   // Pointer to low
+        "add r3, r1, %[mid], lsl #2\n"   // Pointer to mid
+        "add r4, r1, %[mid], lsl #2\n"   // Pointer to mid + 1
+        "add r3, r3, #4\n"               // Correcting mid pointer to one element right
+        "add r5, r1, %[high], lsl #2\n"  // Pointer to high
+        "add r5, r5, #4\n"               // Correcting high pointer to one element right
 
-    int i = 0; // Initial index of first subarray
-    int j = 0; // Initial index of second subarray
-    int k = low; // Initial index to be sorted
+        "1:\n"  // Label for the start of loop
+        "cmp r2, r3\n"  // Compare low pointer with mid
+        "bge 2f\n"      // If low >= mid, jump to label 2
+        "cmp r4, r5\n"  // Compare mid + 1 with high
+        "bge 3f\n"      // If mid + 1 >= high, jump to label 3
 
-    // Implement the merging in assembly
-    asm volatile (
-        // Setup initial indices for L and R arrays
-        "mov r4, %0\n"         // r4 = i
-        "mov r5, %1\n"         // r5 = j
-        "mov r6, %2\n"         // r6 = k
-        "mov r7, %3\n"         // r7 = L
-        "mov r8, %4\n"         // r8 = R
+        // Load values from left and right subarrays, compare and store
+        "ldr r6, [r2]\n"
+        "ldr r7, [r4]\n"
+        "cmp r6, r7\n"
+        "ble 4f\n"
+        "str r7, [r1]\n"
+        "add r4, r4, #4\n"
+        "b 5f\n"
+        "4:\n"
+        "str r6, [r1]\n"
+        "add r2, r2, #4\n"
+        "5:\n"
+        "add r1, r1, #4\n"
+        "b 1b\n"
 
-        "merge_loop:\n"
-        "cmp r4, %5\n"         // Compare i with n1
-        "bge merge_done_right\n"
-        "cmp r5, %6\n"         // Compare j with n2
-        "bge merge_done_left\n"
+        "2:\n"  // Process remaining elements from the right subarray
+        "cmp r4, r5\n"
+        "bge 6f\n"
+        "ldr r6, [r4]\n"
+        "str r6, [r1]\n"
+        "add r4, r4, #4\n"
+        "add r1, r1, #4\n"
+        "b 2b\n"
 
-        // Load values from L and R
-        "ldr r9, [r7, r4, lsl #2]\n"   // Load L[i]
-        "ldr r10, [r8, r5, lsl #2]\n"  // Load R[j]
+        "3:\n"  // Process remaining elements from the left subarray
+        "cmp r2, r3\n"
+        "bge 6f\n"
+        "ldr r6, [r2]\n"
+        "str r6, [r1]\n"
+        "add r2, r2, #4\n"
+        "add r1, r1, #4\n"
+        "b 3b\n"
 
-        // Compare and store smallest in a[k]
-        "cmp r9, r10\n"
-        "bgt store_right\n"
-        "str r9, [%7, r6, lsl #2]\n"   // Store L[i] at a[k]
-        "add r4, r4, #1\n"             // Increment i
-        "b update_k\n"
-        "store_right:\n"
-        "str r10, [%7, r6, lsl #2]\n"  // Store R[j] at a[k]
-        "add r5, r5, #1\n"             // Increment j
-
-        "update_k:\n"
-        "add r6, r6, #1\n"             // Increment k
-        "b merge_loop\n"
-
-        "merge_done_right:\n"
-        // Finish merging remaining R elements if any
-        "cmp r5, %6\n"
-        "bge merge_cleanup\n"
-        "ldr r10, [r8, r5, lsl #2]\n"
-        "str r10, [%7, r6, lsl #2]\n"
-        "add r5, r5, #1\n"
-        "add r6, r6, #1\n"
-        "b merge_done_right\n"
-
-        "merge_done_left:\n"
-        // Finish merging remaining L elements if any
-        "cmp r4, %5\n"
-        "bge merge_cleanup\n"
-        "ldr r9, [r7, r4, lsl #2]\n"
-        "str r9, [%7, r6, lsl #2]\n"
-        "add r4, r4, #1\n"
-        "add r6, r6, #1\n"
-        "b merge_done_left\n"
-
-        "merge_cleanup:\n"
+        "6:\n"  // End of function
         :
-        : "r" (i), "r" (j), "r" (k), "r" (L), "r" (R), "r" (n1), "r" (n2), "r" (a)
-        : "r4", "r5", "r6", "r7", "r8", "r9", "r10", "cc", "memory"
-    );
-
-    free(L);
-    free(R);
+        : [a] "r" (a), [low] "r" (low), [mid] "r" (mid), [high] "r" (high)
+        : "r1", "r2", "r3", "r4", "r5", "r6", "r7", "cc", "memory"  // Clobbers
+        );
 }
 
 void printArray(int* a, int size) {
