@@ -72,52 +72,55 @@ void mergesort_C(int* a, int low, int high) {
 }
 
 void merge_C(int* a, int low, int mid, int high) {
-    int n = high - low + 1; // Number of elements to merge
-    int* temp = (int*)malloc(n * sizeof(int)); // Temporary array for merging
-    if (!temp) {
-        perror("Failed to allocate memory for temporary array");
-        return;
-    }
+    int i, j, k;
+    int n1 = mid - low + 1;
+    int n2 = high - mid;
 
-    int leftIndex = low, rightIndex = mid + 1, tempIndex = 0;
+    int L[n1], H[n2];
 
-    // Merge the two sorted halves into a temporary array
-    while (leftIndex <= mid && rightIndex <= high) {
-        if (a[leftIndex] <= a[rightIndex]) {
-            temp[tempIndex++] = a[leftIndex++];
+    for (i = 0; i < n1; i++)
+        L[i] = a[low + i];
+    for (j = 0; j < n2; j++)
+        H[j] = a[mid + 1 + j];
+
+    i = 0;
+    j = 0;
+    k = low;
+
+    while (i < n1 && j < n2) {
+        if (L[i] <= H[j]) {
+            a[k] = L[i];
+            i++;
         }
         else {
-            temp[tempIndex++] = a[rightIndex++];
+            a[k] = H[j];
+            j++;
         }
+        k++;
     }
 
-    // Copy any remaining elements from the left half
-    while (leftIndex <= mid) {
-        temp[tempIndex++] = a[leftIndex++];
+    while (i < n1) {
+        a[k] = L[i];
+        i++;
+        k++;
     }
 
-    // Copy any remaining elements from the right half
-    while (rightIndex <= high) {
-        temp[tempIndex++] = a[rightIndex++];
+    while (j < n2) {
+        a[k] = H[j];
+        j++;
+        k++;
     }
-
-    // Copy the sorted elements back into the original array
-    for (int i = 0; i < n; i++) {
-        a[low + i] = temp[i];
-    }
-
-    free(temp); // Free the temporary array
 }
 
 void mergesort_ASM(int* a, int low, int high) {
-    asm volatile(
+    asm(
         "cmp %[low], %[high] \n"
-        "bge 2f \n"  // End of the function if low >= high
+        "bge end_function \n"  // End of the function if low >= high
 
         // Calculate middle index
         "mov r4, %[high] \n"
         "add r4, r4, %[low] \n"
-        "lsr r4, r4, 1 \n"  // r4 = (low + high) / 2
+        "lsr r4, r4, #1 \n"  // r4 = (low + high) >> 1
 
         // Recursive call to sort the first half
         "push {lr} \n"
@@ -144,15 +147,16 @@ void mergesort_ASM(int* a, int low, int high) {
         "bl merge_ASM \n"
         "pop {r0-r3} \n"
 
-        "2:\n"  // Label 2 as the end of function
+        "end_function:\n"  // Label end_function as the end of function
         :
         : [a] "r" (a), [low] "r" (low), [high] "r" (high)
         : "r3", "r4", "cc", "memory"
         );
 }
 
+
 void merge_ASM(int* a, int low, int mid, int high) {
-    asm volatile(
+    asm(
         "mov r9, %[a] \n"  // Base address of the array
         "mov r8, %[low] \n"  // Start index of the left subarray
         "mov r7, %[mid] \n"  // End index of the left subarray
@@ -160,44 +164,45 @@ void merge_ASM(int* a, int low, int mid, int high) {
         "mov r5, %[high] \n"  // End index of the right subarray
         "mov r10, r8 \n"  // Temporary index for the merged array
 
-        "1: \n"  // Merge loop
+        "merge_loop: \n"  // Start of merge loop
         "cmp r8, r7 \n"
-        "bgt 3f \n"  // If left index > mid, process right subarray
+        "bgt process_right \n"  // If left index > mid, process right subarray
         "cmp r6, r5 \n"
-        "bgt 4f \n"  // If right index > high, process left subarray
+        "bgt process_left \n"  // If right index > high, process left subarray
 
         "ldr r2, [r9, r8, lsl #2] \n"
         "ldr r3, [r9, r6, lsl #2] \n"
         "cmp r2, r3 \n"
-        "ble 5f \n"
+        "ble store_left \n"
         "str r3, [r9, r10, lsl #2] \n"
         "add r6, r6, #1 \n"
-        "b 6f \n"
+        "b update_index \n"  // Jump forward to update_index
 
-        "5: \n"
+        "store_left: \n"
         "str r2, [r9, r10, lsl #2] \n"
         "add r8, r8, #1 \n"
 
-        "6: \n"
+        "update_index: \n"  // Update index and loop back
         "add r10, r10, #1 \n"
-        "b 1b \n"
+        "b merge_loop \n"  // Jump back to merge_loop
 
-        "3: \n"  // Remaining elements from right
+        "process_right: \n"  // Handling remaining elements from right subarray
         "ldr r2, [r9, r6, lsl #2] \n"
         "str r2, [r9, r10, lsl #2] \n"
         "add r6, r6, #1 \n"
-        "b 6f \n"
+        "b update_index \n"  // Go back to update_index
 
-        "4: \n"  // Remaining elements from left
+        "process_left: \n"  // Handling remaining elements from left subarray
         "ldr r2, [r9, r8, lsl #2] \n"
         "str r2, [r9, r10, lsl #2] \n"
         "add r8, r8, #1 \n"
-        "b 6f \n"
+        "b update_index \n"  // Go back to update_index
         :
-    : [a] "r" (a), [low] "r" (low), [mid] "r" (mid), [high] "r" (high)
+        : [a] "r" (a), [low] "r" (low), [mid] "r" (mid), [high] "r" (high)
         : "r2", "r3", "r5", "r6", "r7", "r8", "r9", "r10", "cc", "memory"
         );
 }
+
 
 
 void printArray(int* a, int size) {
