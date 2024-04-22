@@ -31,10 +31,17 @@ int main(int argc, char* argv[]) {
     }
 
 	// variable intialization
-    for (int i = 0; i < n; i++) {
-        data[i] = rand() % 100;  // Random values between 0 and 99
-        data_asm[i] = data[i];   // Copy to assembly data array
+    int i = 0;
+    for (i = 0; i < n; i++) data[i] = i+1;
+
+    // Shuffle the elements of array 'a' randomly
+    for (i = 0; i < n - 1; i++) {
+        int r = rand() % (n - i) + i;
+        int temp = data[i];
+        data[i] = data[r];
+        data[r] = temp;
     }
+    for (i = 0; i < n; i++) data_asm[i] = data[i];   // Copy to assembly data array
 
     // print data before sorting
     if (n <= 20) {
