@@ -165,43 +165,80 @@ void mergesort_ASM(int* a, int low, int high) {
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
-    printf("merge_ASM called with low=%d, mid=%d, high=%d\n", low, mid, high);
-
+    // Temporary array to hold merged results
     int* temp = (int*)malloc((high - low + 1) * sizeof(int));
     if (!temp) {
         perror("Memory allocation failed");
         return;
     }
 
-    printf("Initial array (a) state from low to high:\n");
+    printf("Initial array (a) state:\n");
     for (int idx = low; idx <= high; idx++) {
         printf("%d ", a[idx]);
     }
     printf("\n");
 
+    // Initialize pointers and indexes
     int i = low, j = mid + 1, k = 0;
 
-    while (i <= mid && j <= high) {
-        if (a[i] <= a[j]) {
-            temp[k++] = a[i++];
-        } else {
-            temp[k++] = a[j++];
-        }
-    }
+    // Inline assembly block to perform the merging operation
+    asm volatile (
+        "1:\n" // Loop label
+        "cmp %1, %3\n" // Compare i and mid
+        "bgt 2f\n" // If i > mid, jump to 2
+        "cmp %2, %5\n" // Compare j and high
+        "bgt 3f\n" // If j > high, jump to 3
 
-    while (i <= mid) {
-        temp[k++] = a[i++];
-    }
+        // Load elements from both halves
+        "ldr r6, [%0, %1, lsl #2]\n" // Load a[i] into r6
+        "ldr r7, [%0, %2, lsl #2]\n" // Load a[j] into r7
 
-    while (j <= high) {
-        temp[k++] = a[j++];
-    }
+        // Compare elements
+        "cmp r6, r7\n"
+        "ble 4f\n" // If a[i] <= a[j], go to 4
 
+        // Store a[j] in temp[k], increment j and k
+        "str r7, [%4, %6, lsl #2]\n"
+        "add %2, %2, #1\n"
+        "b 5f\n"
+
+        "4:\n" // Store a[i] in temp[k], increment i and k
+        "str r6, [%4, %6, lsl #2]\n"
+        "add %1, %1, #1\n"
+
+        "5:\n" // Increment k and loop back
+        "add %6, %6, #1\n"
+        "b 1b\n"
+
+        "2:\n" // Handle remaining elements from right half
+        "ldr r6, [%0, %2, lsl #2]\n"
+        "str r6, [%4, %6, lsl #2]\n"
+        "add %2, %2, #1\n"
+        "add %6, %6, #1\n"
+        "b 2b\n"
+
+        "3:\n" // Handle remaining elements from left half
+        "ldr r6, [%0, %1, lsl #2]\n"
+        "str r6, [%4, %6, lsl #2]\n"
+        "add %1, %1, #1\n"
+        "add %6, %6, #1\n"
+        : "+r" (i), "+r" (j), "+r" (k)  // Output operands
+        : "r" (mid), "r" (high), "r" (temp), "r" (a) // Input operands
+        : "r6", "r7", "cc", "memory" // Clobbers
+        );
+
+    printf("Temporary array (temp) state:\n");
+    for (int idx = 0; idx < (high - low + 1); idx++) {
+        printf("%d ", temp[idx]);
+    }
+    printf("\n");
+
+    // Copy from temp back to array
     for (i = low, k = 0; i <= high; i++, k++) {
         a[i] = temp[k];
     }
 
-    printf("Merged array (a) state from low to high after merging:\n");
+    printf("Final sorted array part:\n");
     for (int idx = low; idx <= high; idx++) {
         printf("%d ", a[idx]);
     }
@@ -209,6 +246,7 @@ void merge_ASM(int* a, int low, int mid, int high) {
 
     free(temp);
 }
+
 
 void printArray(int* a, int size) {
     for (int i = 0; i < size; i++) {
