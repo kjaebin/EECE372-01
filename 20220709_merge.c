@@ -165,62 +165,61 @@ void mergesort_ASM(int* a, int low, int high) {
 
 void merge_ASM(int* a, int low, int mid, int high) {
     asm (
-        "mov %[low], %[low]\n"  // Example to pass variable from C to asm
-        "mov %[mid], %[mid]\n"
-        "mov %[high], %[high]\n"
-        "mov r1, %[a]\n"  // Base address of the array
+        // Setup pointers for array indices
+        "ldr r1, %[a]\n"             // Base address of the array a
+        "add r2, r1, %[low], lsl #2\n"   // r2 = &a[low]
+        "add r3, r1, %[mid], lsl #2\n"   // r3 = &a[mid]
+        "add r4, r1, %[mid], lsl #2\n"   // r4 = &a[mid + 1]
+        "add r4, r4, #4\n"
+        "add r5, r1, %[high], lsl #2\n"  // r5 = &a[high]
+        "add r5, r5, #4\n"
 
-        // Initialize pointers for array indices
-        "add r2, r1, %[low], lsl #2\n"   // Pointer to low
-        "add r3, r1, %[mid], lsl #2\n"   // Pointer to mid
-        "add r4, r1, %[mid], lsl #2\n"   // Pointer to mid + 1
-        "add r3, r3, #4\n"               // Correcting mid pointer to one element right
-        "add r5, r1, %[high], lsl #2\n"  // Pointer to high
-        "add r5, r5, #4\n"               // Correcting high pointer to one element right
+        // Initialize temporary pointer for merging
+        "mov r6, r2\n"                // r6 will track the position for writing back to a[]
 
-        "1:\n"  // Label for the start of loop
+        "1:\n"  // Start of merge loop
         "cmp r2, r3\n"  // Compare low pointer with mid
-        "bge 2f\n"      // If low >= mid, jump to label 2
-        "cmp r4, r5\n"  // Compare mid + 1 with high
-        "bge 3f\n"      // If mid + 1 >= high, jump to label 3
+        "bgt 2f\n"      // If r2 (low) is greater, branch to process right subarray
+        "cmp r4, r5\n"  // Compare mid+1 pointer with high
+        "bgt 3f\n"      // If r4 (mid+1) is greater, branch to process left subarray
 
-        // Load values from left and right subarrays, compare and store
-        "ldr r6, [r2]\n"
-        "ldr r7, [r4]\n"
-        "cmp r6, r7\n"
+        // Load values from subarrays, compare and store smallest
+        "ldr r7, [r2]\n"
+        "ldr r8, [r4]\n"
+        "cmp r7, r8\n"
         "ble 4f\n"
-        "str r7, [r1]\n"
+        "str r8, [r6]\n"
         "add r4, r4, #4\n"
         "b 5f\n"
         "4:\n"
-        "str r6, [r1]\n"
+        "str r7, [r6]\n"
         "add r2, r2, #4\n"
         "5:\n"
-        "add r1, r1, #4\n"
+        "add r6, r6, #4\n"
         "b 1b\n"
 
-        "2:\n"  // Process remaining elements from the right subarray
+        "2:\n"  // Copy remaining right subarray
         "cmp r4, r5\n"
         "bge 6f\n"
-        "ldr r6, [r4]\n"
-        "str r6, [r1]\n"
+        "ldr r7, [r4]\n"
+        "str r7, [r6]\n"
         "add r4, r4, #4\n"
-        "add r1, r1, #4\n"
+        "add r6, r6, #4\n"
         "b 2b\n"
 
-        "3:\n"  // Process remaining elements from the left subarray
+        "3:\n"  // Copy remaining left subarray
         "cmp r2, r3\n"
         "bge 6f\n"
-        "ldr r6, [r2]\n"
-        "str r6, [r1]\n"
+        "ldr r7, [r2]\n"
+        "str r7, [r6]\n"
         "add r2, r2, #4\n"
-        "add r1, r1, #4\n"
+        "add r6, r6, #4\n"
         "b 3b\n"
 
         "6:\n"  // End of function
         :
         : [a] "r" (a), [low] "r" (low), [mid] "r" (mid), [high] "r" (high)
-        : "r1", "r2", "r3", "r4", "r5", "r6", "r7", "cc", "memory"  // Clobbers
+        : "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "cc", "memory"
         );
 }
 
