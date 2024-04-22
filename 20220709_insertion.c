@@ -94,7 +94,7 @@ int main(int argc, char* argv[]) {
 
     free(data);
     free(data_asm);
-    
+
     return 0;
 }
 
@@ -164,7 +164,7 @@ void mergesort_ASM(int* a, int low, int high) {
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
-    asm (
+    asm volatile (
         "mov %[low], %[low]\n"  // Example to pass variable from C to asm
         "mov %[mid], %[mid]\n"
         "mov %[high], %[high]\n"
