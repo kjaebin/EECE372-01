@@ -165,80 +165,70 @@ void mergesort_ASM(int* a, int low, int high) {
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
-    // Temporary array to hold merged results
+    // Allocate memory for the temporary array
     int* temp = (int*)malloc((high - low + 1) * sizeof(int));
     if (!temp) {
         perror("Memory allocation failed");
         return;
     }
 
-    printf("Initial array (a) state:\n");
+    // Print the initial state of the array segment being merged
+    printf("Initial array (a) state for merge:\n");
     for (int idx = low; idx <= high; idx++) {
         printf("%d ", a[idx]);
     }
     printf("\n");
 
-    // Initialize pointers and indexes
     int i = low, j = mid + 1, k = 0;
 
-    // Inline assembly block to perform the merging operation
+    // Inline assembly for merging two sorted halves
     asm volatile (
-        "1:\n" // Loop label
-        "cmp %1, %3\n" // Compare i and mid
-        "bgt 2f\n" // If i > mid, jump to 2
-        "cmp %2, %5\n" // Compare j and high
-        "bgt 3f\n" // If j > high, jump to 3
+        "1:\n"                               // Label for the top of the merge loop
+        "cmp %1, %3\n"                       // Compare i with mid
+        "bgt 2f\n"                           // If i > mid, jump to process the right half
+        "cmp %2, %5\n"                       // Compare j with high
+        "bgt 3f\n"                           // If j > high, jump to process the left half
 
-        // Load elements from both halves
-        "ldr r6, [%0, %1, lsl #2]\n" // Load a[i] into r6
-        "ldr r7, [%0, %2, lsl #2]\n" // Load a[j] into r7
+        "ldr r6, [%0, %1, lsl #2]\n"         // Load a[i] into r6
+        "ldr r7, [%0, %2, lsl #2]\n"         // Load a[j] into r7
+        "cmp r6, r7\n"                       // Compare the elements a[i] and a[j]
+        "ble 4f\n"                           // If a[i] <= a[j], go to store a[i] in temp
 
-        // Compare elements
-        "cmp r6, r7\n"
-        "ble 4f\n" // If a[i] <= a[j], go to 4
+        "str r7, [%4, %6, lsl #2]\n"         // Store a[j] in temp[k]
+        "add %2, %2, #1\n"                   // Increment j
+        "b 5f\n"                             // Jump to increment k
 
-        // Store a[j] in temp[k], increment j and k
-        "str r7, [%4, %6, lsl #2]\n"
-        "add %2, %2, #1\n"
-        "b 5f\n"
+        "4:\n"                               // Label to store a[i] in temp
+        "str r6, [%4, %6, lsl #2]\n"         // Store a[i] in temp[k]
+        "add %1, %1, #1\n"                   // Increment i
 
-        "4:\n" // Store a[i] in temp[k], increment i and k
-        "str r6, [%4, %6, lsl #2]\n"
-        "add %1, %1, #1\n"
+        "5:\n"                               // Label to increment k and loop back
+        "add %6, %6, #1\n"                   // Increment k
+        "b 1b\n"                             // Jump back to the top of the loop
 
-        "5:\n" // Increment k and loop back
-        "add %6, %6, #1\n"
-        "b 1b\n"
+        "2:\n"                               // Label to process remaining right half elements
+        "ldr r6, [%0, %2, lsl #2]\n"         // Load a[j] into r6
+        "str r6, [%4, %6, lsl #2]\n"         // Store a[j] in temp[k]
+        "add %2, %2, #1\n"                   // Increment j
+        "add %6, %6, #1\n"                   // Increment k
+        "b 2b\n"                             // Continue processing the right half
 
-        "2:\n" // Handle remaining elements from right half
-        "ldr r6, [%0, %2, lsl #2]\n"
-        "str r6, [%4, %6, lsl #2]\n"
-        "add %2, %2, #1\n"
-        "add %6, %6, #1\n"
-        "b 2b\n"
-
-        "3:\n" // Handle remaining elements from left half
-        "ldr r6, [%0, %1, lsl #2]\n"
-        "str r6, [%4, %6, lsl #2]\n"
-        "add %1, %1, #1\n"
-        "add %6, %6, #1\n"
-        : "+r" (i), "+r" (j), "+r" (k)  // Output operands
+        "3:\n"                               // Label to process remaining left half elements
+        "ldr r6, [%0, %1, lsl #2]\n"         // Load a[i] into r6
+        "str r6, [%4, %6, lsl #2]\n"         // Store a[i] in temp[k]
+        "add %1, %1, #1\n"                   // Increment i
+        "add %6, %6, #1\n"                   // Increment k
+        : "+r" (i), "+r" (j), "+r" (k)       // Output operands
         : "r" (mid), "r" (high), "r" (temp), "r" (a) // Input operands
-        : "r6", "r7", "cc", "memory" // Clobbers
-        );
+        : "r6", "r7", "cc", "memory"         // Clobbers
+    );
 
-    printf("Temporary array (temp) state:\n");
-    for (int idx = 0; idx < (high - low + 1); idx++) {
-        printf("%d ", temp[idx]);
-    }
-    printf("\n");
-
-    // Copy from temp back to array
+    // Copy the merged temporary array back to the original array segment
     for (i = low, k = 0; i <= high; i++, k++) {
         a[i] = temp[k];
     }
 
-    printf("Final sorted array part:\n");
+    printf("Merged array segment:\n");
     for (int idx = low; idx <= high; idx++) {
         printf("%d ", a[idx]);
     }
@@ -246,7 +236,6 @@ void merge_ASM(int* a, int low, int mid, int high) {
 
     free(temp);
 }
-
 
 void printArray(int* a, int size) {
     for (int i = 0; i < size; i++) {
