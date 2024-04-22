@@ -164,6 +164,9 @@ void mergesort_ASM(int* a, int low, int high) {
     }
 }
 
+#include <stdio.h>
+#include <stdlib.h>
+
 void merge_ASM(int* a, int low, int mid, int high) {
     // Temporary array to hold merged results
     int* temp = (int*)malloc((high - low + 1) * sizeof(int));
@@ -171,6 +174,13 @@ void merge_ASM(int* a, int low, int mid, int high) {
         perror("Memory allocation failed");
         return;
     }
+
+    // Print initial array state for debugging
+    printf("Initial array (a) state:\n");
+    for (int idx = low; idx <= high; idx++) {
+        printf("%d ", a[idx]);
+    }
+    printf("\n");
 
     // Initialize pointers and indexes
     int i = low, j = mid + 1, k = 0;
@@ -219,14 +229,26 @@ void merge_ASM(int* a, int low, int mid, int high) {
         : "r6", "r7", "memory" // Clobbers
     );
 
+    // Print resulting temporary array for debugging
+    printf("Temporary array (temp) state:\n");
+    for (int idx = 0; idx <= (high - low); idx++) {
+        printf("%d ", temp[idx]);
+    }
+    printf("\n");
+
     // Copy from temp back to array
     for (i = low, k = 0; i <= high; i++, k++) {
         a[i] = temp[k];
     }
 
-    free(temp);
+    // Print final sorted array part for debugging
+    printf("Final sorted array part:\n");
+    for (int idx = low; idx <= high; idx++) {
+        printf("%d ", a[idx]);
+    }
+    printf("\n");
 
-    return;
+    free(temp);
 }
 
 void printArray(int* a, int size) {
