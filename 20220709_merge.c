@@ -159,47 +159,40 @@ void mergesort_ASM(int* a, int low, int high) {
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
-    // C언어에서 로컬 변수 선언
     int leftIndex, rightIndex, tempIndex;
-    int* temp;
-    int n;
+    int* temp = (int*)malloc((high - low + 1) * sizeof(int)); // 임시 배열을 위한 메모리 할당
+    int n = high - low + 1;
 
-    // 메모리 할당 및 변수 초기화는 assembly 내에서 진행
-    asm volatile (
-        // 변수 초기화
-        "mov %[li], %[low]\n"             // leftIndex = low
-        "add %[ri], %[mid], #1\n"         // rightIndex = mid + 1
-        "mov %[ti], #0\n"                 // tempIndex = 0
-        "mov %[n], %[high]\n"             // n = high - low + 1
-        "sub %[n], %[n], %[low]\n"
-        "add %[n], %[n], #1\n"
+    asm(
+        "mov r1, %[li]\n"          // leftIndex
+        "mov r2, %[ri]\n"          // rightIndex
+        "mov r3, %[ti]\n"          // tempIndex
+        "mov r4, %[a]\n"           // 배열 a의 주소
+        "mov r5, %[temp]\n"        // temp 배열의 주소
 
-        // 임시 배열 메모리 할당 (여기서는 예시로 사용된 주소, 실제로는 malloc 사용)
-        "ldr %[temp], =temp_memory\n"     // temp = 임시 메모리 주소 (실제 할당 필요)
+        "loop_1:\n"                // Merge the two sorted halves into a temporary array
+        "cmp r1, %[mid]\n"         // leftIndex와 mid 비교
+        "bgt left_done\n"          // leftIndex > mid이면 left_done으로 점프
+        "cmp r2, %[high]\n"        // rightIndex와 high 비교
+        "bgt right_done\n"         // rightIndex > high이면 right_done으로 점프
 
-        // 병합 루프 시작
-        "loop_1:\n"
-        "cmp %[li], %[mid]\n"
-        "bgt left_done\n"
-        "cmp %[ri], %[high]\n"
-        "bgt right_done\n"
-        "ldr r6, [%[a], %[li], lsl #2]\n"
-        "ldr r7, [%[a], %[ri], lsl #2]\n"
+        "ldr r6, [r4, r1, LSL #2]\n" // a[leftIndex]
+        "ldr r7, [r4, r2, LSL #2]\n" // a[rightIndex]
         "cmp r6, r7\n"
-        "ble copy_left\n"
+        "ble copy_left\n"          // r6 <= r7 이면 copy_left로 점프
         "b copy_right\n"
 
         "copy_left:\n"
-        "str r6, [%[temp], %[ti], lsl #2]\n"
-        "add %[li], %[li], #1\n"
+        "str r6, [r5, r3, LSL #2]\n" // temp[tempIndex] = a[leftIndex]
+        "add r1, r1, #1\n"           // leftIndex++
         "b increment_temp\n"
 
         "copy_right:\n"
-        "str r7, [%[temp], %[ti], lsl #2]\n"
-        "add %[ri], %[ri], #1\n"
+        "str r7, [r5, r3, LSL #2]\n" // temp[tempIndex] = a[rightIndex]
+        "add r2, r2, #1\n"           // rightIndex++
 
         "increment_temp:\n"
-        "add %[ti], %[ti], #1\n"
+        "add r3, r3, #1\n"           // tempIndex++
         "b loop_1\n"
 
         "left_done:\n"
@@ -238,17 +231,13 @@ void merge_ASM(int* a, int low, int mid, int high) {
         "b copy_back\n"             // Loop back to copy_back
 
         "finish_copy:\n"
-
-        : [li] "+r" (leftIndex), [ri] "+r" (rightIndex), [ti] "+r" (tempIndex), [temp] "+r" (temp), [n] "+r" (n)
-        : [a] "r" (a), [low] "r" (low), [mid] "r" (mid), [high] "r" (high)
+        :
+        : [a] "r" (a), [low] "r" (low), [mid] "r" (mid), [high] "r" (high),
+        [li] "r" (leftIndex), [ri] "r" (rightIndex), [ti] "r" (tempIndex), [temp] "r" (temp),
+        [n] "r" (n)
         : "r1", "r2", "r3", "r4", "r5", "r6", "r7", "cc", "memory"
-    );
-
-    // 메모리 할당 및 해제 로직은 C에서 수행
-    // temp = malloc((high - low + 1) * sizeof(int));
-    // free(temp);
+        );
 }
-
 
 void printArray(int* a, int size) {
     for (int i = 0; i < size; i++) {
