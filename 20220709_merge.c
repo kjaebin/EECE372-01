@@ -179,9 +179,9 @@ void merge_ASM(int* a, int low, int mid, int high) {
         // 병합 루프 시작
         "loop_merge:\n\t"
         "cmp %[li], %[mid]\n\t"            // leftIndex와 mid 비교
-        "bgt left_done\n\t"                 // leftIndex가 mid보다 크면 left 부분 배열이 끝났음을 의미, end_left로 점프
+        "bgt left_done\n\t"                 // leftIndex가 mid보다 크면 left 부분 배열이 끝났음을 의미, left_done으로 점프
         "cmp %[ri], %[high]\n\t"           // rightIndex와 high 비교
-        "bgt right_done\n\t"                // rightIndex가 high보다 크면 right 부분 배열이 끝났음을 의미, end_right로 점프
+        "bgt right_done\n\t"                // rightIndex가 high보다 크면 right 부분 배열이 끝났음을 의미, right_done으로 점프
 
         // 두 부분 배열의 현재 요소를 로드
         "ldr r5, [%[a], %[li], LSL #2]\n\t"  // a[leftIndex]의 값을 r5에 로드
@@ -189,16 +189,16 @@ void merge_ASM(int* a, int low, int mid, int high) {
 
         // 비교 및 temp에 저장
         "cmp r5, r6\n\t"
-        "ble copy_left\n\t"                // r5 <= r6이면 왼쪽 요소를 temp에 복사
-
-        "copy_right:\n\t"
-        "str r6, [%[temp], %[ti], LSL #2]\n\t"  // temp[tempIndex]에 a[rightIndex]값 저장
-        "add %[ri], %[ri], #1\n\t"         // rightIndex 증가
-        "b increment_temp\n\t"             // tempIndex 증가로 점프
+        "bgt copy_right\n\t"                // r5 > r6 이면 오른쪽 요소를 temp에 복사
 
         "copy_left:\n\t"
         "str r5, [%[temp], %[ti], LSL #2]\n\t"  // temp[tempIndex]에 a[leftIndex]값 저장
         "add %[li], %[li], #1\n\t"         // leftIndex 증가
+        "b increment_temp\n\t"             // tempIndex 증가로 점프
+
+        "copy_right:\n\t"
+        "str r6, [%[temp], %[ti], LSL #2]\n\t"  // temp[tempIndex]에 a[rightIndex]값 저장
+        "add %[ri], %[ri], #1\n\t"         // rightIndex 증가
 
         "increment_temp:\n\t"
         "add %[ti], %[ti], #1\n\t"         // tempIndex 증가
@@ -206,18 +206,19 @@ void merge_ASM(int* a, int low, int mid, int high) {
 
         "left_done:\n\t"
         "right_done:\n\t"
-        "end_left:\n\t"
+        "check_right:\n\t"
         // 남은 오른쪽 부분 배열 요소를 temp에 복사
         // rightIndex가 high 보다 크지 않은 경우 (즉, 아직 오른쪽 부분 배열에 요소가 남아있는 경우) 계속 진행
         "cmp %[ri], %[high]\n\t"
-        "bgt finish_merge\n\t"           // rightIndex가 high보다 크면 루프를 종료하고 merge 작업을 마무리
+        "bgt end_right\n\t"           // rightIndex가 high보다 크면 루프를 종료하고 merge 작업을 마무리
         "ldr r6, [%[a], %[ri], LSL #2]\n\t" // a[rightIndex]에서 요소를 r6 레지스터로 로드
         "str r6, [%[temp], %[ti], LSL #2]\n\t" // r6 레지스터의 값을 temp[tempIndex]에 저장
         "add %[ri], %[ri], #1\n\t"       // rightIndex 증가
         "add %[ti], %[ti], #1\n\t"       // tempIndex 증가
-        "b end_left\n\t"                 // 다시 end_left 레이블로 점프하여 남은 오른쪽 요소를 계속 복사
+        "b check_right\n\t"                 // 다시 end_left 레이블로 점프하여 남은 오른쪽 요소를 계속 복사
 
         "end_right:\n\t"
+        "check_left:\n\t"
         // 남은 왼쪽 부분 배열 요소를 temp에 복사
         // leftIndex가 mid 보다 크지 않은 경우 (즉, 아직 왼쪽 부분 배열에 요소가 남아있는 경우) 계속 진행
         "cmp %[li], %[mid]\n\t"
@@ -226,7 +227,7 @@ void merge_ASM(int* a, int low, int mid, int high) {
         "str r5, [%[temp], %[ti], LSL #2]\n\t" // r5 레지스터의 값을 temp[tempIndex]에 저장
         "add %[li], %[li], #1\n\t"       // leftIndex 증가
         "add %[ti], %[ti], #1\n\t"       // tempIndex 증가
-        "b end_right\n\t"                // 다시 end_right 레이블로 점프하여 남은 왼쪽 요소를 계속 복사
+        "b check_left\n\t"                // 다시 end_right 레이블로 점프하여 남은 왼쪽 요소를 계속 복사
 
         "finish_merge:\n\t"
         // temp의 내용을 원래의 배열 a에 복사
