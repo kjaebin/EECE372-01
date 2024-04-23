@@ -180,7 +180,7 @@ void mergesort_ASM(int* a, int low, int high) {
 
         // 병합 호출: 정렬된 두 부분 배열 병합
         "push {r0-r3, lr}\n\t"             // r0부터 r3까지의 레지스터와 링크 레지스터(lr)를 스택에 저장
-        "mow r4, r2\n\t"                   // 종료 인덱스 high를 temp로 r4에 잠시 저장
+        "mov r4, r2\n\t"                   // 종료 인덱스 high를 temp로 r4에 잠시 저장
         "mov r2, r3\n\t"                   // 중간 인덱스 mid를 r2에 설정
         "mov r3, r4\n\t"                   // 종료 인덱스 high를 r3에 설정
         "bl merge_ASM\n\t"                 // merge_ASM 함수 호출
