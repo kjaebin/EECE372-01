@@ -48,6 +48,12 @@ int main(int argc, char* argv[]) {
     }
     for (i = 0; i < n; i++) data_asm[i] = data[i];   // Copy to assembly data array
 
+    printf("data_asm check: ");
+    for (int i = 0; i < n; i++) {
+        printf("%d ", data_asm[i]);
+    }
+    printf("\n");
+
     // print data before sorting
     if (n <= 20) {
         printf("Before sort     : [ ");
@@ -163,7 +169,7 @@ void merge_ASM(int* a, int low, int mid, int high) {
     int* temp = (int*)malloc((high - low + 1) * sizeof(int)); // 임시 배열을 위한 메모리 할당
     int n = high - low + 1;
 
-    asm volatile (
+    asm (
         // 초기 레지스터 설정
         "mov %[li], %[low]\n\t"            // leftIndex를 low 값으로 초기화
         "mov %[ri], %[mid]\n\t"            // rightIndex를 mid 값으로 초기화
