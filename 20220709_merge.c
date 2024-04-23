@@ -159,75 +159,94 @@ void mergesort_ASM(int* a, int low, int high) {
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
+    // C언어에서 로컬 변수 선언
     int leftIndex, rightIndex, tempIndex;
     int* temp;
     int n;
 
-    asm(
-        "mov r1, %[low]\n"         // Initialize leftIndex with low
-        "mov r2, %[mid]\n"         // Initialize rightIndex with mid + 1
-        "add r2, r2, #1\n"
-        "mov r3, #0\n"             // Initialize tempIndex with 0
-        "mov r4, %[a]\n"           // Pointer to the array 'a'
-        "mov r5, %[temp]\n"        // Pointer to the temporary array 'temp'
-        // Merge two sorted halves into a temporary array
+    // 메모리 할당 및 변수 초기화는 assembly 내에서 진행
+    asm volatile (
+        // 변수 초기화
+        "mov %[li], %[low]\n"             // leftIndex = low
+        "add %[ri], %[mid], #1\n"         // rightIndex = mid + 1
+        "mov %[ti], #0\n"                 // tempIndex = 0
+        "mov %[n], %[high]\n"             // n = high - low + 1
+        "sub %[n], %[n], %[low]\n"
+        "add %[n], %[n], #1\n"
+
+        // 임시 배열 메모리 할당 (여기서는 예시로 사용된 주소, 실제로는 malloc 사용)
+        "ldr %[temp], =temp_memory\n"     // temp = 임시 메모리 주소 (실제 할당 필요)
+
+        // 병합 루프 시작
         "loop_1:\n"
-        "cmp r1, %[mid]\n"
+        "cmp %[li], %[mid]\n"
         "bgt left_done\n"
-        "cmp r2, %[high]\n"
+        "cmp %[ri], %[high]\n"
         "bgt right_done\n"
-        "ldr r6, [r4, r1, LSL #2]\n"
-        "ldr r7, [r4, r2, LSL #2]\n"
+        "ldr r6, [%[a], %[li], lsl #2]\n"
+        "ldr r7, [%[a], %[ri], lsl #2]\n"
         "cmp r6, r7\n"
         "ble copy_left\n"
         "b copy_right\n"
+
         "copy_left:\n"
-        "str r6, [r5, r3, LSL #2]\n"
-        "add r1, r1, #1\n"
+        "str r6, [%[temp], %[ti], lsl #2]\n"
+        "add %[li], %[li], #1\n"
         "b increment_temp\n"
+
         "copy_right:\n"
-        "str r7, [r5, r3, LSL #2]\n"
-        "add r2, r2, #1\n"
+        "str r7, [%[temp], %[ti], lsl #2]\n"
+        "add %[ri], %[ri], #1\n"
+
         "increment_temp:\n"
-        "add r3, r3, #1\n"
+        "add %[ti], %[ti], #1\n"
         "b loop_1\n"
+
         "left_done:\n"
         "right_done:\n"
-        // Remaining elements copy
+        // Copy any remaining elements from the left half
         "check_left:\n"
-        "cmp r1, %[mid]\n"
-        "bgt end_left\n"
-        "ldr r6, [r4, r1, LSL #2]\n"
-        "str r6, [r5, r3, LSL #2]\n"
-        "add r1, r1, #1\n"
-        "add r3, r3, #1\n"
-        "b check_left\n"
+        "cmp %[li], %[mid]\n"       // Compare leftIndex with mid
+        "bgt end_left\n"            // If leftIndex > mid, jump to end_left
+        "ldr r6, [%[a], %[li], LSL #2]\n"  // Load the value at a[leftIndex]
+        "str r6, [%[temp], %[ti], LSL #2]\n" // Store it in temp[tempIndex]
+        "add %[li], %[li], #1\n"    // Increment leftIndex
+        "add %[ti], %[ti], #1\n"    // Increment tempIndex
+        "b check_left\n"            // Loop back to check_left
+
         "end_left:\n"
+        // Copy any remaining elements from the right half
         "check_right:\n"
-        "cmp r2, %[high]\n"
-        "bgt end_right\n"
-        "ldr r6, [r4, r2, LSL #2]\n"
-        "str r6, [r5, r3, LSL #2]\n"
-        "add r2, r2, #1\n"
-        "add r3, r3, #1\n"
-        "b check_right\n"
+        "cmp %[ri], %[high]\n"      // Compare rightIndex with high
+        "bgt end_right\n"           // If rightIndex > high, jump to end_right
+        "ldr r6, [%[a], %[ri], LSL #2]\n" // Load the value at a[rightIndex]
+        "str r6, [%[temp], %[ti], LSL #2]\n" // Store it in temp[tempIndex]
+        "add %[ri], %[ri], #1\n"    // Increment rightIndex
+        "add %[ti], %[ti], #1\n"    // Increment tempIndex
+        "b check_right\n"           // Loop back to check_right
+
         "end_right:\n"
-        // Copy back to the original array
-        "mov r7, #0\n"             // Initialize index for copy back
+        // Copy the sorted elements back into the original array
+        "mov r7, #0\n"              // Initialize counter i = 0
         "copy_back:\n"
-        "cmp r7, %[n]\n"
-        "bge finish_copy\n"
-        "ldr r6, [r5, r7, LSL #2]\n"
-        "str r6, [r4, r7, LSL #2]\n"
-        "add r7, r7, #1\n"
-        "b copy_back\n"
+        "cmp r7, %[n]\n"            // Compare i with n
+        "bge finish_copy\n"         // If i >= n, finish copying
+        "ldr r6, [%[temp], r7, LSL #2]\n" // Load the value from temp[i]
+        "str r6, [%[a], %[low], LSL #2]\n" // Store it in a[low + i]
+        "add r7, r7, #1\n"          // Increment i
+        "add %[low], %[low], #4\n"  // Move the base pointer of a to the next element
+        "b copy_back\n"             // Loop back to copy_back
+
         "finish_copy:\n"
-        :
-        : [a] "r" (a), [low] "r" (low), [mid] "r" (mid), [high] "r" (high),
-          [li] "r" (leftIndex), [ri] "r" (rightIndex), [ti] "r" (tempIndex), [temp] "r" (temp),
-          [n] "r" (n)
+
+        : [li] "+r" (leftIndex), [ri] "+r" (rightIndex), [ti] "+r" (tempIndex), [temp] "+r" (temp), [n] "+r" (n)
+        : [a] "r" (a), [low] "r" (low), [mid] "r" (mid), [high] "r" (high)
         : "r1", "r2", "r3", "r4", "r5", "r6", "r7", "cc", "memory"
     );
+
+    // 메모리 할당 및 해제 로직은 C에서 수행
+    // temp = malloc((high - low + 1) * sizeof(int));
+    // free(temp);
 }
 
 
