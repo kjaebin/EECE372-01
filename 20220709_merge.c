@@ -89,8 +89,8 @@ int main(int argc, char* argv[]) {
     }
 
     // print run time
-    printf("Execution Time   (C): %.f [sec]\n", elapsed_c);
-    printf("Execution Time (ASM): %.f [sec]\n", elapsed_asm);
+    printf("Execution Time   (C): %f [sec]\n", elapsed_c);
+    printf("Execution Time (ASM): %f [sec]\n", elapsed_asm);
 
     free(data);
     free(data_asm);
