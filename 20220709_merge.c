@@ -198,8 +198,8 @@ void merge_ASM(int* a, int low, int mid, int high) {
         "add %[ti], %[ti], #1\n\t"         // tempIndex 증가
         "b loop_merge\n\t"                 // 병합 루프로 돌아가기
 
-        "left_done\n"
-        "right_done\n"
+        "left_done:\n\t"
+        "right_done:\n\t"
         "end_left:\n\t"
         // 남은 오른쪽 부분 배열 요소를 temp에 복사
         // rightIndex가 high 보다 크지 않은 경우 (즉, 아직 오른쪽 부분 배열에 요소가 남아있는 경우) 계속 진행
