@@ -164,63 +164,77 @@ void mergesort_ASM(int* a, int low, int high) {
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
-    asm volatile (
-        "mov %[low], %[low]\n"  // Example to pass variable from C to asm
-        "mov %[mid], %[mid]\n"
-        "mov %[high], %[high]\n"
-        "mov r1, %[a]\n"  // Base address of the array
+    asm(
+        "mov r1, %[li]\n"          // leftIndex
+        "mov r2, %[ri]\n"          // rightIndex
+        "mov r3, %[ti]\n"          // tempIndex
+        "mov r4, %[a]\n"           // 배열 a의 주소
+        "mov r5, %[temp]\n"        // temp 배열의 주소
 
-        // Initialize pointers for array indices
-        "add r2, r1, %[low], lsl #2\n"   // Pointer to low
-        "add r3, r1, %[mid], lsl #2\n"   // Pointer to mid
-        "add r4, r1, %[mid], lsl #2\n"   // Pointer to mid + 1
-        "add r3, r3, #4\n"               // Correcting mid pointer to one element right
-        "add r5, r1, %[high], lsl #2\n"  // Pointer to high
-        "add r5, r5, #4\n"               // Correcting high pointer to one element right
-
-        "1:\n"  // Label for the start of loop
-        "cmp r2, r3\n"  // Compare low pointer with mid
-        "bge 2f\n"      // If low >= mid, jump to label 2
-        "cmp r4, r5\n"  // Compare mid + 1 with high
-        "bge 3f\n"      // If mid + 1 >= high, jump to label 3
-
-        // Load values from left and right subarrays, compare and store
-        "ldr r6, [r2]\n"
-        "ldr r7, [r4]\n"
+        "loop_1:\n"                // Merge the two sorted halves into a temporary array
+        "cmp r1, %[mid]\n"         // leftIndex와 mid 비교
+        "bgt left_done\n"          // leftIndex > mid이면 left_done으로 점프
+        "cmp r2, %[high]\n"        // rightIndex와 high 비교
+        "bgt right_done\n"         // rightIndex > high이면 right_done으로 점프
+        
+        "ldr r6, [r4, r1, LSL #2]\n" // a[leftIndex]
+        "ldr r7, [r4, r2, LSL #2]\n" // a[rightIndex]
         "cmp r6, r7\n"
-        "ble 4f\n"
-        "str r7, [r1]\n"
-        "add r4, r4, #4\n"
-        "b 5f\n"
-        "4:\n"
-        "str r6, [r1]\n"
-        "add r2, r2, #4\n"
-        "5:\n"
-        "add r1, r1, #4\n"
-        "b 1b\n"
+        "ble copy_left\n"          // r6 <= r7 이면 copy_left로 점프
+        "b copy_right\n"
 
-        "2:\n"  // Process remaining elements from the right subarray
-        "cmp r4, r5\n"
-        "bge 6f\n"
-        "ldr r6, [r4]\n"
-        "str r6, [r1]\n"
-        "add r4, r4, #4\n"
-        "add r1, r1, #4\n"
-        "b 2b\n"
+        "copy_left:\n"              
+        "str r6, [r5, r3, LSL #2]\n" // temp[tempIndex] = a[leftIndex]
+        "add r1, r1, #1\n"           // leftIndex++
+        "b increment_temp\n"
 
-        "3:\n"  // Process remaining elements from the left subarray
-        "cmp r2, r3\n"
-        "bge 6f\n"
-        "ldr r6, [r2]\n"
-        "str r6, [r1]\n"
-        "add r2, r2, #4\n"
-        "add r1, r1, #4\n"
-        "b 3b\n"
+        "copy_right:\n"
+        "str r7, [r5, r3, LSL #2]\n" // temp[tempIndex] = a[rightIndex]
+        "add r2, r2, #1\n"           // rightIndex++
 
-        "6:\n"  // End of function
+        "increment_temp:\n"
+        "add r3, r3, #1\n"           // tempIndex++
+        "b loop_1\n"
+
+        // Copy any remaining elements from the left half
+        "check_left:\n"
+        "cmp %[li], %[mid]\n"       // Compare leftIndex with mid
+        "bgt end_left\n"            // If leftIndex > mid, jump to end_left
+        "ldr r6, [%[a], %[li], LSL #2]\n"  // Load the value at a[leftIndex]
+        "str r6, [%[temp], %[ti], LSL #2]\n" // Store it in temp[tempIndex]
+        "add %[li], %[li], #1\n"    // Increment leftIndex
+        "add %[ti], %[ti], #1\n"    // Increment tempIndex
+        "b check_left\n"            // Loop back to check_left
+
+        "end_left:\n"
+        // Copy any remaining elements from the right half
+        "check_right:\n"
+        "cmp %[ri], %[high]\n"      // Compare rightIndex with high
+        "bgt end_right\n"           // If rightIndex > high, jump to end_right
+        "ldr r6, [%[a], %[ri], LSL #2]\n" // Load the value at a[rightIndex]
+        "str r6, [%[temp], %[ti], LSL #2]\n" // Store it in temp[tempIndex]
+        "add %[ri], %[ri], #1\n"    // Increment rightIndex
+        "add %[ti], %[ti], #1\n"    // Increment tempIndex
+        "b check_right\n"           // Loop back to check_right
+
+        "end_right:\n"
+        // Copy the sorted elements back into the original array
+        "mov r7, #0\n"              // Initialize counter i = 0
+        "copy_back:\n"
+        "cmp r7, %[n]\n"            // Compare i with n
+        "bge finish_copy\n"         // If i >= n, finish copying
+        "ldr r6, [%[temp], r7, LSL #2]\n" // Load the value from temp[i]
+        "str r6, [%[a], %[low], LSL #2]\n" // Store it in a[low + i]
+        "add r7, r7, #1\n"          // Increment i
+        "add %[low], %[low], #4\n"  // Move the base pointer of a to the next element
+        "b copy_back\n"             // Loop back to copy_back
+
+        "finish_copy:\n"
         :
-        : [a] "r" (a), [low] "r" (low), [mid] "r" (mid), [high] "r" (high)
-        : "r1", "r2", "r3", "r4", "r5", "r6", "r7", "cc", "memory"  // Clobbers
+        : [a] "r" (a), [low] "r" (low), [mid] "r" (mid), [high] "r" (high),
+        [li] "r" (leftIndex), [ri] "r" (rightIndex), [ti] "r" (tempIndex), [temp] "r" (temp),
+        [n] "r" (n)
+        : "r6", "r7", "cc", "memory"
         );
 }
 
