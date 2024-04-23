@@ -164,6 +164,11 @@ void mergesort_ASM(int* a, int low, int high) {
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
+
+    int leftIndex, rightIndex, tempIndex;
+    int* temp;
+    int n;
+    
     asm(
         "mov r1, %[li]\n"          // leftIndex
         "mov r2, %[ri]\n"          // rightIndex
