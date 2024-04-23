@@ -178,7 +178,9 @@ void mergesort_ASM(int* a, int low, int high) {
         "mov r1, %[l]\n"                 // 시작 인덱스 low를 r1에 설정
         "mov r2, r3\n"                   // 중간 인덱스 mid를 r2에 설정
         "mov r3, %[h]\n"                 // 종료 인덱스 high를 r3에 설정
+        "push {r0-r3, lr}\n"             // r0부터 r3까지의 레지스터와 링크 레지스터(lr)를 스택에 저장
         "bl merge_ASM\n"                 // merge_ASM 함수 호출
+        "pop {r0-r3, lr}\n"              // 스택에서 r0부터 r3까지의 레지스터와 링크 레지스터(lr)를 복구
 
         "end_mergesort:\n"               // 재귀의 베이스 케이스 및 함수 종료 지점 레이블
         :
