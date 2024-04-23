@@ -185,9 +185,10 @@ void mergesort_ASM(int* a, int low, int high) {
         "end_mergesort:\n"
         :
         : [a] "r" (a), [l] "r" (low), [h] "r" (high)
-        : "memory", "cc"
-    );
+        : "r0", "r1", "r2", "r3", "memory", "cc"
+        );
 }
+
 
 void merge_ASM(int* a, int low, int mid, int high) {
     int leftIndex = low, rightIndex = mid + 1, tempIndex = 0;
