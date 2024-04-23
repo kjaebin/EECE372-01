@@ -48,12 +48,6 @@ int main(int argc, char* argv[]) {
     }
     for (i = 0; i < n; i++) data_asm[i] = data[i];   // Copy to assembly data array
 
-    printf("data_asm check: ");
-    for (int i = 0; i < n; i++) {
-        printf("%d ", data_asm[i]);
-    }
-    printf("\n");
-
     // print data before sorting
     if (n <= 20) {
         printf("Before sort     : [ ");
