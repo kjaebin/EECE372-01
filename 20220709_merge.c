@@ -164,80 +164,84 @@ void merge_ASM(int* a, int low, int mid, int high) {
     int n = high - low + 1;
 
     asm volatile (
-        // Register initialization
-        "mov %[li], %[low]\n\t"
-        "mov %[ri], %[mid]\n\t"
-        "add %[ri], %[ri], #1\n\t"
-        "mov %[ti], #0\n\t"
+        // 초기 레지스터 설정
+        "mov %[li], %[low]\n\t"            // leftIndex를 low 값으로 초기화
+        "mov %[ri], %[mid]\n\t"            // rightIndex를 mid 값으로 초기화
+        "add %[ri], %[ri], #1\n\t"         // rightIndex를 mid+1로 설정하여 오른쪽 부분 배열의 시작점으로 설정
+        "mov %[ti], #0\n\t"                // tempIndex를 0으로 초기화
 
-        // Setup for merge loop
+        // 병합 루프 시작
         "loop_merge:\n\t"
-        "cmp %[li], %[mid]\n\t"
-        "bgt end_left\n\t"
-        "cmp %[ri], %[high]\n\t"
-        "bgt end_right\n\t"
+        "cmp %[li], %[mid]\n\t"            // leftIndex와 mid 비교
+        "bgt left_done\n\t"                 // leftIndex가 mid보다 크면 left 부분 배열이 끝났음을 의미, end_left로 점프
+        "cmp %[ri], %[high]\n\t"           // rightIndex와 high 비교
+        "bgt right_done\n\t"                // rightIndex가 high보다 크면 right 부분 배열이 끝났음을 의미, end_right로 점프
 
-        // Load values from the two halves
-        "ldr r5, [%[a], %[li], LSL #2]\n\t"  // Load a[leftIndex]
-        "ldr r6, [%[a], %[ri], LSL #2]\n\t"  // Load a[rightIndex]
+        // 두 부분 배열의 현재 요소를 로드
+        "ldr r5, [%[a], %[li], LSL #2]\n\t"  // a[leftIndex]의 값을 r5에 로드
+        "ldr r6, [%[a], %[ri], LSL #2]\n\t"  // a[rightIndex]의 값을 r6에 로드
 
-        // Compare and store to temp
+        // 비교 및 temp에 저장
         "cmp r5, r6\n\t"
-        "ble copy_left\n\t"
+        "ble copy_left\n\t"                // r5 <= r6이면 왼쪽 요소를 temp에 복사
 
         "copy_right:\n\t"
-        "str r6, [%[temp], %[ti], LSL #2]\n\t"
-        "add %[ri], %[ri], #1\n\t"
-        "b increment_temp\n\t"
+        "str r6, [%[temp], %[ti], LSL #2]\n\t"  // temp[tempIndex]에 a[rightIndex]값 저장
+        "add %[ri], %[ri], #1\n\t"         // rightIndex 증가
+        "b increment_temp\n\t"             // tempIndex 증가로 점프
 
         "copy_left:\n\t"
-        "str r5, [%[temp], %[ti], LSL #2]\n\t"
-        "add %[li], %[li], #1\n\t"
+        "str r5, [%[temp], %[ti], LSL #2]\n\t"  // temp[tempIndex]에 a[leftIndex]값 저장
+        "add %[li], %[li], #1\n\t"         // leftIndex 증가
 
         "increment_temp:\n\t"
-        "add %[ti], %[ti], #1\n\t"
-        "b loop_merge\n\t"
+        "add %[ti], %[ti], #1\n\t"         // tempIndex 증가
+        "b loop_merge\n\t"                 // 병합 루프로 돌아가기
 
+        "left_done\n"
+        "right_done\n"
         "end_left:\n\t"
-        // If left is done, copy remaining right elements
+        // 남은 오른쪽 부분 배열 요소를 temp에 복사
+        // rightIndex가 high 보다 크지 않은 경우 (즉, 아직 오른쪽 부분 배열에 요소가 남아있는 경우) 계속 진행
         "cmp %[ri], %[high]\n\t"
-        "bgt finish_merge\n\t"
-        "ldr r6, [%[a], %[ri], LSL #2]\n\t"
-        "str r6, [%[temp], %[ti], LSL #2]\n\t"
-        "add %[ri], %[ri], #1\n\t"
-        "add %[ti], %[ti], #1\n\t"
-        "b end_left\n\t"
+        "bgt finish_merge\n\t"           // rightIndex가 high보다 크면 루프를 종료하고 merge 작업을 마무리
+        "ldr r6, [%[a], %[ri], LSL #2]\n\t" // a[rightIndex]에서 요소를 r6 레지스터로 로드
+        "str r6, [%[temp], %[ti], LSL #2]\n\t" // r6 레지스터의 값을 temp[tempIndex]에 저장
+        "add %[ri], %[ri], #1\n\t"       // rightIndex 증가
+        "add %[ti], %[ti], #1\n\t"       // tempIndex 증가
+        "b end_left\n\t"                 // 다시 end_left 레이블로 점프하여 남은 오른쪽 요소를 계속 복사
 
         "end_right:\n\t"
-        // If right is done, copy remaining left elements
+        // 남은 왼쪽 부분 배열 요소를 temp에 복사
+        // leftIndex가 mid 보다 크지 않은 경우 (즉, 아직 왼쪽 부분 배열에 요소가 남아있는 경우) 계속 진행
         "cmp %[li], %[mid]\n\t"
-        "bgt finish_merge\n\t"
-        "ldr r5, [%[a], %[li], LSL #2]\n\t"
-        "str r5, [%[temp], %[ti], LSL #2]\n\t"
-        "add %[li], %[li], #1\n\t"
-        "add %[ti], %[ti], #1\n\t"
-        "b end_right\n\t"
+        "bgt finish_merge\n\t"           // leftIndex가 mid보다 크면 루프를 종료하고 merge 작업을 마무리
+        "ldr r5, [%[a], %[li], LSL #2]\n\t" // a[leftIndex]에서 요소를 r5 레지스터로 로드
+        "str r5, [%[temp], %[ti], LSL #2]\n\t" // r5 레지스터의 값을 temp[tempIndex]에 저장
+        "add %[li], %[li], #1\n\t"       // leftIndex 증가
+        "add %[ti], %[ti], #1\n\t"       // tempIndex 증가
+        "b end_right\n\t"                // 다시 end_right 레이블로 점프하여 남은 왼쪽 요소를 계속 복사
 
         "finish_merge:\n\t"
-        // Copy back to original array
-        "mov %[ti], #0\n\t"
+        // temp의 내용을 원래의 배열 a에 복사
+        "mov %[ti], #0\n\t"              // tempIndex를 0으로 초기화
         "copy_back_loop:\n\t"
-        "cmp %[ti], %[n]\n\t"
-        "bge end_copy_back\n\t"
-        "ldr r5, [%[temp], %[ti], LSL #2]\n\t"
-        "str r5, [%[a], %[low], LSL #2]\n\t"
-        "add %[low], %[low], #4\n\t"
-        "add %[ti], %[ti], #1\n\t"
-        "b copy_back_loop\n\t"
+        "cmp %[ti], %[n]\n\t"            // tempIndex와 n을 비교
+        "bge end_copy_back\n\t"          // tempIndex가 n 이상이면 모든 요소를 복사했음을 의미하고, 복사 루프를 종료
+        "ldr r5, [%[temp], %[ti], LSL #2]\n\t" // temp[tempIndex]에서 요소를 r5 레지스터로 로드
+        "str r5, [%[a], %[low], LSL #2]\n\t" // r5 레지스터의 값을 a[low + tempIndex]에 저장
+        "add %[low], %[low], #4\n\t"     // low 값을 증가시키며 배열 인덱스를 조정
+        "add %[ti], %[ti], #1\n\t"       // tempIndex 증가
+        "b copy_back_loop\n\t"           // 다시 copy_back_loop 레이블로 점프하여 나머지 요소를 계속 복사
 
         "end_copy_back:\n\t"
         :
         : [a] "r" (a), [low] "r" (low), [mid] "r" (mid), [high] "r" (high),
-          [li] "r" (leftIndex), [ri] "r" (rightIndex), [ti] "r" (tempIndex), [temp] "r" (temp), [n] "r" (n)
+        [li] "r" (leftIndex), [ri] "r" (rightIndex), [ti] "r" (tempIndex), [temp] "r" (temp), [n] "r" (n)
         : "r5", "r6", "cc", "memory"
-    );
+        );
 
-    free(temp); // Free the temporary array
+    free(temp); // 임시 배열 해제
 }
 
 void printArray(int* a, int size) {
