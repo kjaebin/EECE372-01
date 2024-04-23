@@ -180,15 +180,16 @@ void mergesort_ASM(int* a, int low, int high) {
 
         // 병합 호출: 정렬된 두 부분 배열 병합
         "push {r0-r3, lr}\n\t"             // r0부터 r3까지의 레지스터와 링크 레지스터(lr)를 스택에 저장
-        "mov r3, r2\n\t"                   // 종료 인덱스 high를 r3에 설정
+        "mow r4, r2\n\t"                   // 종료 인덱스 high를 temp로 r4에 잠시 저장
         "mov r2, r3\n\t"                   // 중간 인덱스 mid를 r2에 설정
+        "mov r3, r4\n\t"                   // 종료 인덱스 high를 r3에 설정
         "bl merge_ASM\n\t"                 // merge_ASM 함수 호출
         "pop {r0-r3, lr}\n\t"              // 스택에서 r0부터 r3까지의 레지스터와 링크 레지스터(lr)를 복구
 
         "end_mergesort:\n\t"               // 재귀의 베이스 케이스 및 함수 종료 지점 레이블
         :
         : [a] "r" (a), [l] "r" (low), [h] "r" (high)  // 입력: 배열 포인터, 시작 인덱스, 종료 인덱스
-        : "r0", "r1", "r2", "r3", "lr", "memory", "cc"  // clobbered: 사용된 레지스터와 메모리, 조건 코드
+        : "r0", "r1", "r2", "r3", "r4" "lr", "memory", "cc"  // clobbered: 사용된 레지스터와 메모리, 조건 코드
         );
 }
 
