@@ -14,19 +14,48 @@ void printArray(int* a, int size);
 int main(int argc, char* argv[]) {
     srand(time(NULL));
 
-    // Handle user input
-    if (argc < 2) {
+    // user input
+    if (argc != 2) {
         printf("Usage: %s <number of elements>\n", argv[0]);
         return 1;
     }
-    int n = atoi(argv[1]);
-    int* array = (int*)malloc(n * sizeof(int));
-    for (int i = 0; i < n; i++) {
-        array[i] = rand() % 100; // Random numbers between 0 and 99
+
+    int n = atoi(argv[1]);  // Number of elements in array
+
+    if (n <= 0) {
+        printf("Number of elements must be positive.\n");
+        return 1;
     }
 
-    printf("Data before sorting:\n");
-    printArray(array, n);
+    int* data = (int*)malloc(sizeof(int) * n);
+    int* data_asm = (int*)malloc(sizeof(int) * n);
+
+    if (!data || !data_asm) {
+        printf("Memory allocation failed.\n");
+        return 1;
+    }
+
+    // variable intialization
+    int i = 0;
+    for (i = 0; i < n; i++) data[i] = i + 1;
+
+    // Shuffle the elements of array randomly
+    for (i = 0; i < n - 1; i++) {
+        int r = rand() % (n - i) + i;
+        int temp = data[i];
+        data[i] = data[r];
+        data[r] = temp;
+    }
+    for (i = 0; i < n; i++) data_asm[i] = data[i];   // Copy to assembly data array
+
+    // print data before sorting
+    if (n <= 20) {
+        printf("Before sort     : [ ");
+        for (int i = 0; i < n; i++) {
+            printf("%d ", data[i]);
+        }
+        printf("]\n");
+    }
 
     // Time measurement setup
     clock_t begin1, end1;
@@ -34,25 +63,38 @@ int main(int argc, char* argv[]) {
 
     // Sorting with C implementation
     begin1 = clock();
-    mergesort_C(array, 0, n - 1);
+    mergesort_C(data, 0, n - 1);
     end1 = clock();
-    double elapsed_c = (double)(end1 - begin1) / CLOCKS_PER_SEC;
-
-    printf("Data after sorting (C):\n");
-    printArray(array, n);
-    printf("Execution Time (C): %f[s]\n", elapsed_c);
+    float elapsed_c = (float)(end1 - begin1) / CLOCKS_PER_SEC;
 
     // Sorting with Assembly implementation
     begin2 = clock();
-    mergesort_ASM(array, 0, n - 1);
+    mergesort_ASM(data_asm, 0, n - 1);
     end2 = clock();
-    double elapsed_asm = (double)(end2 - begin2) / CLOCKS_PER_SEC;
+    float elapsed_asm = (float)(end2 - begin2) / CLOCKS_PER_SEC;
 
-    printf("Data after sorting (ASM):\n");
-    printArray(array, n);
-    printf("Execution Time (ASM): %f[s]\n", elapsed_asm);
+    // print data after sorting
+    if (n <= 20) {
+        printf("After sort   (C): [ ");
+        for (int i = 0; i < n; i++) {
+            printf("%d ", data[i]);
+        }
+        printf("]\n");
 
-    free(array);
+        printf("After sort (ASM): [ ");
+        for (int i = 0; i < n; i++) {
+            printf("%d ", data_asm[i]);
+        }
+        printf("]\n");
+    }
+
+    // print run time
+    printf("Execution Time   (C): %f [sec]\n", elapsed_c);
+    printf("Execution Time (ASM): %f [sec]\n", elapsed_asm);
+
+    free(data);
+    free(data_asm);
+
     return 0;
 }
 
@@ -72,92 +114,48 @@ void mergesort_C(int* a, int low, int high) {
 }
 
 void merge_C(int* a, int low, int mid, int high) {
-    int i, j, k;
-    int n1 = mid - low + 1;
-    int n2 = high - mid;
+    int n = high - low + 1; // Number of elements to merge
+    int* temp = (int*)malloc(n * sizeof(int)); // Temporary array for merging
+    int leftIndex = low, rightIndex = mid + 1, tempIndex = 0;
 
-    int L[n1], H[n2];
-
-    for (i = 0; i < n1; i++)
-        L[i] = a[low + i];
-    for (j = 0; j < n2; j++)
-        H[j] = a[mid + 1 + j];
-
-    i = 0;
-    j = 0;
-    k = low;
-
-    while (i < n1 && j < n2) {
-        if (L[i] <= H[j]) {
-            a[k] = L[i];
-            i++;
+    // Merge the two sorted halves into a temporary array
+    while (leftIndex <= mid && rightIndex <= high) {
+        if (a[leftIndex] <= a[rightIndex]) {
+            temp[tempIndex++] = a[leftIndex++];
         }
         else {
-            a[k] = H[j];
-            j++;
+            temp[tempIndex++] = a[rightIndex++];
         }
-        k++;
     }
 
-    while (i < n1) {
-        a[k] = L[i];
-        i++;
-        k++;
+    // Copy any remaining elements from the left half
+    while (leftIndex <= mid) {
+        temp[tempIndex++] = a[leftIndex++];
     }
 
-    while (j < n2) {
-        a[k] = H[j];
-        j++;
-        k++;
+    // Copy any remaining elements from the right half
+    while (rightIndex <= high) {
+        temp[tempIndex++] = a[rightIndex++];
     }
+
+    // Copy the sorted elements back into the original array
+    for (int i = 0; i < n; i++) {
+        a[low + i] = temp[i];
+    }
+
+    free(temp); // Free the temporary array
 }
 
 void mergesort_ASM(int* a, int low, int high) {
-    asm volatile (
-        // Register initialization from parameters
-        "mov r0, %[a]\n\t"       // Array base address
-        "mov r1, %[l]\n\t"       // Low index
-        "mov r2, %[h]\n\t"       // High index
+    if (low < high) {
+        int mid = low + (high - low) / 2;
 
-        // Check if low < high
-        "cmp r1, r2\n\t"
-        "bge end_mergesort\n\t"  // Exit if not (base case of recursion)
+        mergesort_ASM(a, low, mid);
 
-        // Calculate mid point: mid = low + (high - low) / 2
-        "sub r3, r2, r1\n\t"     // r3 = high - low
-        "lsr r3, r3, #1\n\t"     // r3 = (high - low) / 2
-        "add r3, r1, r3\n\t"     // r3 = low + (high - low) / 2 (mid)
+        mergesort_ASM(a, mid + 1, high);
 
-        // Recursive call: mergesort_ASM(a, low, mid)
-        "push {lr}\n\t"          // Save return address
-        "mov r2, r3\n\t"         // Second recursive call high = mid
-        "bl mergesort_ASM\n\t"   // Call mergesort_ASM(a, low, mid)
-        "pop {lr}\n\t"           // Restore return address
-
-        "mov r2, %[h]\n\t"       // High index 다시 초기화
-
-        // Recursive call: mergesort_ASM(a, mid+1, high)
-        "push {lr}\n\t"
-        "add r1, r3, #1\n\t"     // First parameter for second recursion low = mid + 1
-        "bl mergesort_ASM\n\t"   // Call mergesort_ASM(a, mid+1, high)
-        "pop {lr}\n\t"
-
-        "mov r1, %[l]\n\t"       // Low index 다시 초기화
-        
-        // Call merge_ASM to merge the sorted halves
-        "push {lr}\n\t"
-        "mov r0, %[a]\n\t"       // First argument: array 'a'
-        "mov r1, %[l]\n\t"       // Second argument: low
-        "mov r2, r3\n\t"         // Third argument: mid
-        "mov r3, %[h]\n\t"       // Fourth argument: high
-        "bl merge_ASM\n\t"       // Call merge_ASM(a, low, mid, high)
-        "pop {lr}\n\t"
-
-        "end_mergesort:\n\t"
-        :
-        : [a] "r" (a), [l] "r" (low), [h] "r" (high)
-        : "r0", "r1", "r2", "r3", "cc", "memory"
-        );
+        merge_ASM(a, low, mid, high);
+    }
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
@@ -165,7 +163,7 @@ void merge_ASM(int* a, int low, int mid, int high) {
     int* temp = (int*)malloc((high - low + 1) * sizeof(int)); // 임시 배열을 위한 메모리 할당
     int n = high - low + 1; // Number of elements to merge
 
-    asm(
+    asm (
         // 초기 레지스터 설정
         "mov %[li], %[low]\n\t"            // leftIndex를 low 값으로 초기화
         "mov %[ri], %[mid]\n\t"            // rightIndex를 mid 값으로 초기화
