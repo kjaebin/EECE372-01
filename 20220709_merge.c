@@ -161,7 +161,7 @@ void mergesort_ASM(int* a, int low, int high) {
 void merge_ASM(int* a, int low, int mid, int high) {
     int leftIndex = low, rightIndex = mid + 1, tempIndex = 0;
     int* temp = (int*)malloc((high - low + 1) * sizeof(int)); // 임시 배열을 위한 메모리 할당
-    int n = high - low + 1;
+    int n = high - low + 1; // Number of elements to merge
 
     asm (
         // 초기 레지스터 설정
@@ -200,28 +200,28 @@ void merge_ASM(int* a, int low, int mid, int high) {
 
         "left_done:\n\t"
         "right_done:\n\t"
-        "check_right:\n\t"
-        // 남은 오른쪽 부분 배열 요소를 temp에 복사
-        // rightIndex가 high 보다 크지 않은 경우 (즉, 아직 오른쪽 부분 배열에 요소가 남아있는 경우) 계속 진행
-        "cmp %[ri], %[high]\n\t"
-        "bgt end_right\n\t"           // rightIndex가 high보다 크면 루프를 종료하고 merge 작업을 마무리
-        "ldr r6, [%[a], %[ri], LSL #2]\n\t" // a[rightIndex]에서 요소를 r6 레지스터로 로드
-        "str r6, [%[temp], %[ti], LSL #2]\n\t" // r6 레지스터의 값을 temp[tempIndex]에 저장
-        "add %[ri], %[ri], #1\n\t"       // rightIndex 증가
-        "add %[ti], %[ti], #1\n\t"       // tempIndex 증가
-        "b check_right\n\t"                 // 다시 end_left 레이블로 점프하여 남은 오른쪽 요소를 계속 복사
-
-        "end_right:\n\t"
         "check_left:\n\t"
         // 남은 왼쪽 부분 배열 요소를 temp에 복사
         // leftIndex가 mid 보다 크지 않은 경우 (즉, 아직 왼쪽 부분 배열에 요소가 남아있는 경우) 계속 진행
         "cmp %[li], %[mid]\n\t"
-        "bgt finish_merge\n\t"           // leftIndex가 mid보다 크면 루프를 종료하고 merge 작업을 마무리
-        "ldr r5, [%[a], %[li], LSL #2]\n\t" // a[leftIndex]에서 요소를 r5 레지스터로 로드
+        "bgt end_left\n\t"           // rightIndex가 high보다 크면 루프를 종료하고 merge 작업을 마무리
+        "ldr r5, [%[a], %[li], LSL #2]\n\t" // 업데이트된 a[leftIndex]의 값을 r5에 로드
         "str r5, [%[temp], %[ti], LSL #2]\n\t" // r5 레지스터의 값을 temp[tempIndex]에 저장
         "add %[li], %[li], #1\n\t"       // leftIndex 증가
         "add %[ti], %[ti], #1\n\t"       // tempIndex 증가
-        "b check_left\n\t"                // 다시 end_right 레이블로 점프하여 남은 왼쪽 요소를 계속 복사
+        "b check_left\n\t"                 // 다시 check_left 레이블로 점프하여 남은 오른쪽 요소를 계속 복사
+
+        "end_left:\n\t"
+        "check_right:\n\t"
+        // 남은 오른쪽 부분 배열 요소를 temp에 복사
+        // rightIndex가 high 보다 크지 않은 경우 (즉, 아직 오른쪽 부분 배열에 요소가 남아있는 경우) 계속 진행
+        "cmp %[ri], %[high]\n\t"
+        "bgt finish_merge\n\t"           // leftIndex가 mid보다 크면 루프를 종료하고 merge 작업을 마무리
+        "ldr r6, [%[a], %[ri], LSL #2]\n\t"  // 업데이트된 a[rightIndex]의 값을 r6에 로드
+        "str r6, [%[temp], %[ti], LSL #2]\n\t" // r6 레지스터의 값을 temp[tempIndex]에 저장
+        "add %[ri], %[ri], #1\n\t"       // rightIndex 증가
+        "add %[ti], %[ti], #1\n\t"       // tempIndex 증가
+        "b check_right\n\t"                // 다시 check_right 레이블로 점프하여 남은 왼쪽 요소를 계속 복사
 
         "finish_merge:\n\t"
         // temp의 내용을 원래의 배열 a에 복사
