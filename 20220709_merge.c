@@ -237,7 +237,7 @@ void merge_ASM(int* a, int low, int mid, int high) {
         : [a] "r" (a), [low] "r" (low), [mid] "r" (mid), [high] "r" (high),
         [li] "r" (leftIndex), [ri] "r" (rightIndex), [ti] "r" (tempIndex), [temp] "r" (temp),
         [n] "r" (n)
-        : "r6", "r7", "cc", "memory"
+        : "r1", "r2", "r3", "r4", "r5", "r6", "r7", "cc", "memory"
         );
 }
 
