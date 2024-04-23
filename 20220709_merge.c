@@ -194,12 +194,15 @@ void mergesort_ASM(int* a, int low, int high) {
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
-    int leftIndex = low, rightIndex = mid + 1, tempIndex = 0;
+    int leftIndex, rightIndex, tempIndex;
     int* temp = (int*)malloc((high - low + 1) * sizeof(int)); // 임시 배열을 위한 메모리 할당
-    int n = high - low + 1; // Number of elements to merge
+    int n;
 
-    asm(
+    asm (
         // 초기 레지스터 설정
+        "mov %[n], %[high]\n\t"
+        "sub %[n], %[low]\n\t"
+        "add %[n], #1\n\t"                 // n을 high-low+1으로 초기화
         "mov %[li], %[low]\n\t"            // leftIndex를 low 값으로 초기화
         "mov %[ri], %[mid]\n\t"            // rightIndex를 mid 값으로 초기화
         "add %[ri], %[ri], #1\n\t"         // rightIndex를 mid+1로 설정하여 오른쪽 부분 배열의 시작점으로 설정
