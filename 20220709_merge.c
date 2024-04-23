@@ -147,13 +147,13 @@ void merge_C(int* a, int low, int mid, int high) {
 }
 
 void mergesort_ASM(int* a, int low, int high) {
-    asm volatile (
+    asm(
         "cmp %[l], %[h]\n"                // Compare low and high
-        "bge 1f\n"                        // If low >= high, jump to end_mergesort
+        "bge end_mergesort\n"                        // If low >= high, jump to end_mergesort
 
         "sub r3, %[h], %[l]\n"            // high - low
         "lsr r3, r3, #1\n"                // (high - low) / 2
-        "add r3, %[l], r3\n"              // low + (high - low) / 2
+        "add r3, %[l], r3\n"              // low + (high - low) / 2 (mid)
 
         // First recursive call
         "push {r4-r6, lr}\n"              // Save registers and link register
@@ -180,11 +180,11 @@ void mergesort_ASM(int* a, int low, int high) {
         "bl merge_ASM\n"                  // Call merge_ASM(a, low, mid, high)
         "pop {r4-r6, lr}\n"
 
-        "1:\n"                            // end_mergesort label
+        "end_mergesort:\n"                            // end_mergesort label
         :
         : [a] "r" (a), [l] "r" (low), [h] "r" (high)
-        : "r0", "r1", "r2", "r3", "memory", "cc"
-    );
+        : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "memory", "cc"
+        );
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
@@ -192,7 +192,7 @@ void merge_ASM(int* a, int low, int mid, int high) {
     int* temp = (int*)malloc((high - low + 1) * sizeof(int)); // 임시 배열을 위한 메모리 할당
     int n = high - low + 1; // Number of elements to merge
 
-    asm (
+    asm(
         // 초기 레지스터 설정
         "mov %[li], %[low]\n\t"            // leftIndex를 low 값으로 초기화
         "mov %[ri], %[mid]\n\t"            // rightIndex를 mid 값으로 초기화
