@@ -147,15 +147,51 @@ void merge_C(int* a, int low, int mid, int high) {
 }
 
 void mergesort_ASM(int* a, int low, int high) {
-    if (low < high) {
-        int mid = low + (high - low) / 2;
+    asm (
+        // Register initialization from parameters
+        "mov r0, %[a]\n\t"       // Array base address
+        "mov r1, %[l]\n\t"       // Low index
+        "mov r2, %[h]\n\t"       // High index
 
-        mergesort_ASM(a, low, mid);
+        // Check if low < high
+        "cmp r1, r2\n\t"
+        "bge end_mergesort\n\t"  // Exit if not (base case of recursion)
 
-        mergesort_ASM(a, mid + 1, high);
+        // Calculate mid point: mid = low + (high - low) / 2
+        "sub r3, r2, r1\n\t"     // r3 = high - low
+        "lsr r3, r3, #1\n\t"     // r3 = (high - low) / 2
+        "add r3, r1, r3\n\t"     // r3 = low + (high - low) / 2 (mid)
 
-        merge_ASM(a, low, mid, high);
-    }
+        // Recursive call: mergesort_ASM(a, low, mid)
+        "push {lr}\n\t"          // Save return address
+        "mov r2, r3\n\t"         // Second recursive call high = mid
+        "bl mergesort_ASM\n\t"   // Call mergesort_ASM(a, low, mid)
+        "pop {lr}\n\t"           // Restore return address
+
+        "mov r2, %[h]\n\t"       // High index 다시 초기화
+
+        // Recursive call: mergesort_ASM(a, mid+1, high)
+        "push {lr}\n\t"
+        "add r1, r3, #1\n\t"     // First parameter for second recursion low = mid + 1
+        "bl mergesort_ASM\n\t"   // Call mergesort_ASM(a, mid+1, high)
+        "pop {lr}\n\t"
+
+        "mov r1, %[l]\n\t"       // Low index 다시 초기화
+        
+        // Call merge_ASM to merge the sorted halves
+        "push {lr}\n\t"
+        "mov r0, %[a]\n\t"       // First argument: array 'a'
+        "mov r1, %[l]\n\t"       // Second argument: low
+        "mov r2, r3\n\t"         // Third argument: mid
+        "mov r3, %[h]\n\t"       // Fourth argument: high
+        "bl merge_ASM\n\t"       // Call merge_ASM(a, low, mid, high)
+        "pop {lr}\n\t"
+
+        "end_mergesort:\n\t"
+        :
+        : [a] "r" (a), [l] "r" (low), [h] "r" (high)
+        : "r0", "r1", "r2", "r3", "cc", "memory"
+        );
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
