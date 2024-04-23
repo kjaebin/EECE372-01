@@ -189,7 +189,7 @@ void mergesort_ASM(int* a, int low, int high) {
         "end_mergesort:\n\t"               // 재귀의 베이스 케이스 및 함수 종료 지점 레이블
         :
         : [a] "r" (a), [l] "r" (low), [h] "r" (high)  // 입력: 배열 포인터, 시작 인덱스, 종료 인덱스
-        : "r0", "r1", "r2", "r3", "r4" "lr", "memory", "cc"  // clobbered: 사용된 레지스터와 메모리, 조건 코드
+        : "r0", "r1", "r2", "r3", "r4", "lr", "memory", "cc"  // clobbered: 사용된 레지스터와 메모리, 조건 코드
         );
 }
 
