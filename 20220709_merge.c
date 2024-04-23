@@ -159,84 +159,85 @@ void mergesort_ASM(int* a, int low, int high) {
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
-    int leftIndex, rightIndex, tempIndex;
+    int leftIndex = low, rightIndex = mid + 1, tempIndex = 0;
     int* temp = (int*)malloc((high - low + 1) * sizeof(int)); // 임시 배열을 위한 메모리 할당
     int n = high - low + 1;
 
-    asm(
-        "mov r1, %[li]\n"          // leftIndex
-        "mov r2, %[ri]\n"          // rightIndex
-        "mov r3, %[ti]\n"          // tempIndex
-        "mov r4, %[a]\n"           // 배열 a의 주소
-        "mov r5, %[temp]\n"        // temp 배열의 주소
+    asm volatile (
+        // Register initialization
+        "mov %[li], %[low]\n\t"
+        "mov %[ri], %[mid]\n\t"
+        "add %[ri], %[ri], #1\n\t"
+        "mov %[ti], #0\n\t"
 
-        "loop_1:\n"                // Merge the two sorted halves into a temporary array
-        "cmp r1, %[mid]\n"         // leftIndex와 mid 비교
-        "bgt left_done\n"          // leftIndex > mid이면 left_done으로 점프
-        "cmp r2, %[high]\n"        // rightIndex와 high 비교
-        "bgt right_done\n"         // rightIndex > high이면 right_done으로 점프
+        // Setup for merge loop
+        "loop_merge:\n\t"
+        "cmp %[li], %[mid]\n\t"
+        "bgt end_left\n\t"
+        "cmp %[ri], %[high]\n\t"
+        "bgt end_right\n\t"
 
-        "ldr r6, [r4, r1, LSL #2]\n" // a[leftIndex]
-        "ldr r7, [r4, r2, LSL #2]\n" // a[rightIndex]
-        "cmp r6, r7\n"
-        "ble copy_left\n"          // r6 <= r7 이면 copy_left로 점프
-        "b copy_right\n"
+        // Load values from the two halves
+        "ldr r5, [%[a], %[li], LSL #2]\n\t"  // Load a[leftIndex]
+        "ldr r6, [%[a], %[ri], LSL #2]\n\t"  // Load a[rightIndex]
 
-        "copy_left:\n"
-        "str r6, [r5, r3, LSL #2]\n" // temp[tempIndex] = a[leftIndex]
-        "add r1, r1, #1\n"           // leftIndex++
-        "b increment_temp\n"
+        // Compare and store to temp
+        "cmp r5, r6\n\t"
+        "ble copy_left\n\t"
 
-        "copy_right:\n"
-        "str r7, [r5, r3, LSL #2]\n" // temp[tempIndex] = a[rightIndex]
-        "add r2, r2, #1\n"           // rightIndex++
+        "copy_right:\n\t"
+        "str r6, [%[temp], %[ti], LSL #2]\n\t"
+        "add %[ri], %[ri], #1\n\t"
+        "b increment_temp\n\t"
 
-        "increment_temp:\n"
-        "add r3, r3, #1\n"           // tempIndex++
-        "b loop_1\n"
+        "copy_left:\n\t"
+        "str r5, [%[temp], %[ti], LSL #2]\n\t"
+        "add %[li], %[li], #1\n\t"
 
-        "left_done:\n"
-        "right_done:\n"
-        // Copy any remaining elements from the left half
-        "check_left:\n"
-        "cmp %[li], %[mid]\n"       // Compare leftIndex with mid
-        "bgt end_left\n"            // If leftIndex > mid, jump to end_left
-        "ldr r6, [%[a], %[li], LSL #2]\n"  // Load the value at a[leftIndex]
-        "str r6, [%[temp], %[ti], LSL #2]\n" // Store it in temp[tempIndex]
-        "add %[li], %[li], #1\n"    // Increment leftIndex
-        "add %[ti], %[ti], #1\n"    // Increment tempIndex
-        "b check_left\n"            // Loop back to check_left
+        "increment_temp:\n\t"
+        "add %[ti], %[ti], #1\n\t"
+        "b loop_merge\n\t"
 
-        "end_left:\n"
-        // Copy any remaining elements from the right half
-        "check_right:\n"
-        "cmp %[ri], %[high]\n"      // Compare rightIndex with high
-        "bgt end_right\n"           // If rightIndex > high, jump to end_right
-        "ldr r6, [%[a], %[ri], LSL #2]\n" // Load the value at a[rightIndex]
-        "str r6, [%[temp], %[ti], LSL #2]\n" // Store it in temp[tempIndex]
-        "add %[ri], %[ri], #1\n"    // Increment rightIndex
-        "add %[ti], %[ti], #1\n"    // Increment tempIndex
-        "b check_right\n"           // Loop back to check_right
+        "end_left:\n\t"
+        // If left is done, copy remaining right elements
+        "cmp %[ri], %[high]\n\t"
+        "bgt finish_merge\n\t"
+        "ldr r6, [%[a], %[ri], LSL #2]\n\t"
+        "str r6, [%[temp], %[ti], LSL #2]\n\t"
+        "add %[ri], %[ri], #1\n\t"
+        "add %[ti], %[ti], #1\n\t"
+        "b end_left\n\t"
 
-        "end_right:\n"
-        // Copy the sorted elements back into the original array
-        "mov r7, #0\n"              // Initialize counter i = 0
-        "copy_back:\n"
-        "cmp r7, %[n]\n"            // Compare i with n
-        "bge finish_copy\n"         // If i >= n, finish copying
-        "ldr r6, [%[temp], r7, LSL #2]\n" // Load the value from temp[i]
-        "str r6, [%[a], %[low], LSL #2]\n" // Store it in a[low + i]
-        "add r7, r7, #1\n"          // Increment i
-        "add %[low], %[low], #4\n"  // Move the base pointer of a to the next element
-        "b copy_back\n"             // Loop back to copy_back
+        "end_right:\n\t"
+        // If right is done, copy remaining left elements
+        "cmp %[li], %[mid]\n\t"
+        "bgt finish_merge\n\t"
+        "ldr r5, [%[a], %[li], LSL #2]\n\t"
+        "str r5, [%[temp], %[ti], LSL #2]\n\t"
+        "add %[li], %[li], #1\n\t"
+        "add %[ti], %[ti], #1\n\t"
+        "b end_right\n\t"
 
-        "finish_copy:\n"
+        "finish_merge:\n\t"
+        // Copy back to original array
+        "mov %[ti], #0\n\t"
+        "copy_back_loop:\n\t"
+        "cmp %[ti], %[n]\n\t"
+        "bge end_copy_back\n\t"
+        "ldr r5, [%[temp], %[ti], LSL #2]\n\t"
+        "str r5, [%[a], %[low], LSL #2]\n\t"
+        "add %[low], %[low], #4\n\t"
+        "add %[ti], %[ti], #1\n\t"
+        "b copy_back_loop\n\t"
+
+        "end_copy_back:\n\t"
         :
         : [a] "r" (a), [low] "r" (low), [mid] "r" (mid), [high] "r" (high),
-        [li] "r" (leftIndex), [ri] "r" (rightIndex), [ti] "r" (tempIndex), [temp] "r" (temp),
-        [n] "r" (n)
-        : "r1", "r2", "r3", "r4", "r5", "r6", "r7", "cc", "memory"
-        );
+          [li] "r" (leftIndex), [ri] "r" (rightIndex), [ti] "r" (tempIndex), [temp] "r" (temp), [n] "r" (n)
+        : "r5", "r6", "cc", "memory"
+    );
+
+    free(temp); // Free the temporary array
 }
 
 void printArray(int* a, int size) {
