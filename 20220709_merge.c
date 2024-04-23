@@ -148,43 +148,45 @@ void merge_C(int* a, int low, int mid, int high) {
 
 void mergesort_ASM(int* a, int low, int high) {
     asm(
-        "cmp %[l], %[h]\n"                // Compare low and high
-        "bge end_mergesort\n"                        // If low >= high, jump to end_mergesort
+        // Check base condition
+        "cmp %[l], %[h]\n"
+        "bge end_mergesort\n"
 
-        "sub r3, %[h], %[l]\n"            // high - low
-        "lsr r3, r3, #1\n"                // (high - low) / 2
-        "add r3, %[l], r3\n"              // low + (high - low) / 2 (mid)
+        // Calculate mid point
+        "sub r3, %[h], %[l]\n"
+        "lsr r3, r3, #1\n"
+        "add r3, %[l], r3\n"
 
-        // First recursive call
-        "push {r4-r6, lr}\n"              // Save registers and link register
-        "mov r0, %[a]\n"                  // Setup arguments for the call
+        // Save context
+        "push {r0-r3, lr}\n"
+
+        // First recursive call: mergesort_ASM(a, low, mid)
+        "mov r0, %[a]\n"
         "mov r1, %[l]\n"
         "mov r2, r3\n"
-        "bl mergesort_ASM\n"              // Call mergesort_ASM(a, low, mid)
-        "pop {r4-r6, lr}\n"               // Restore registers and link register
+        "bl mergesort_ASM\n"
 
-        // Second recursive call
-        "push {r4-r6, lr}\n"
-        "mov r0, %[a]\n"
-        "add r1, r3, #1\n"
+        // Second recursive call: mergesort_ASM(a, mid+1, high)
+        "mov r1, r3\n"
+        "add r1, r1, #1\n"
         "mov r2, %[h]\n"
-        "bl mergesort_ASM\n"              // Call mergesort_ASM(a, mid+1, high)
-        "pop {r4-r6, lr}\n"
+        "bl mergesort_ASM\n"
 
-        // Merge call
-        "push {r4-r6, lr}\n"
+        // Merge call: merge_ASM(a, low, mid, high)
         "mov r0, %[a]\n"
         "mov r1, %[l]\n"
         "mov r2, r3\n"
         "mov r3, %[h]\n"
-        "bl merge_ASM\n"                  // Call merge_ASM(a, low, mid, high)
-        "pop {r4-r6, lr}\n"
+        "bl merge_ASM\n"
 
-        "end_mergesort:\n"                            // end_mergesort label
+        // Restore context
+        "pop {r0-r3, lr}\n"
+
+        "end_mergesort:\n"
         :
         : [a] "r" (a), [l] "r" (low), [h] "r" (high)
-        : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "memory", "cc"
-        );
+        : "memory", "cc"
+    );
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
