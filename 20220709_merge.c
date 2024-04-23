@@ -148,7 +148,7 @@ void merge_C(int* a, int low, int mid, int high) {
 
 void mergesort_ASM(int* a, int low, int high) {
     asm(
-        // Initialize registers r4, r5 only if they are not set (can use a flag or check if r4, r5 are zero)
+        // Initialize registers r1, r2 only if they are not set (can use a flag or check if r1, r2 are zero)
         "cmp r1, #0\n\t"
         "cmpeq r2, #0\n\t"
         "moveq r1, %[l]\n\t"               // Set r4 to low if not already set
@@ -182,7 +182,6 @@ void mergesort_ASM(int* a, int low, int high) {
         "push {r0-r3, lr}\n\t"             // r0부터 r3까지의 레지스터와 링크 레지스터(lr)를 스택에 저장
         "mov r3, r2\n\t"                   // 종료 인덱스 high를 r3에 설정
         "mov r2, r3\n\t"                   // 중간 인덱스 mid를 r2에 설정
-        "push {r0-r3, lr}\n\t"             // r0부터 r3까지의 레지스터와 링크 레지스터(lr)를 스택에 저장
         "bl merge_ASM\n\t"                 // merge_ASM 함수 호출
         "pop {r0-r3, lr}\n\t"              // 스택에서 r0부터 r3까지의 레지스터와 링크 레지스터(lr)를 복구
 
