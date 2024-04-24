@@ -160,80 +160,80 @@ void mergesort_ASM(int* a, int low, int high) {
 
 void merge_ASM(int* a, int low, int mid, int high) {
     int leftIndex = low, rightIndex = mid + 1, tempIndex = 0;
-    int* temp = (int*)malloc((high - low + 1) * sizeof(int)); // ÀÓ½Ã ¹è¿­À» À§ÇÑ ¸Ş¸ğ¸® ÇÒ´ç
+    int* temp = (int*)malloc((high - low + 1) * sizeof(int)); // ì„ì‹œ ë°°ì—´ì„ ìœ„í•œ ë©”ëª¨ë¦¬ í• ë‹¹
     int n = high - low + 1; // Number of elements to merge
 
     asm (
-        // ÃÊ±â ·¹Áö½ºÅÍ ¼³Á¤
-        "mov %[li], %[low]\n\t"            // leftIndex¸¦ low °ªÀ¸·Î ÃÊ±âÈ­
-        "mov %[ri], %[mid]\n\t"            // rightIndex¸¦ mid °ªÀ¸·Î ÃÊ±âÈ­
-        "add %[ri], %[ri], #1\n\t"         // rightIndex¸¦ mid+1·Î ¼³Á¤ÇÏ¿© ¿À¸¥ÂÊ ºÎºĞ ¹è¿­ÀÇ ½ÃÀÛÁ¡À¸·Î ¼³Á¤
-        "mov %[ti], #0\n\t"                // tempIndex¸¦ 0À¸·Î ÃÊ±âÈ­
+        // ì´ˆê¸° ë ˆì§€ìŠ¤í„° ì„¤ì •
+        "mov %[li], %[low]\n\t"            // leftIndexë¥¼ low ê°’ìœ¼ë¡œ ì´ˆê¸°í™”
+        "mov %[ri], %[mid]\n\t"            // rightIndexë¥¼ mid ê°’ìœ¼ë¡œ ì´ˆê¸°í™”
+        "add %[ri], %[ri], #1\n\t"         // rightIndexë¥¼ mid+1ë¡œ ì„¤ì •í•˜ì—¬ ì˜¤ë¥¸ìª½ ë¶€ë¶„ ë°°ì—´ì˜ ì‹œì‘ì ìœ¼ë¡œ ì„¤ì •
+        "mov %[ti], #0\n\t"                // tempIndexë¥¼ 0ìœ¼ë¡œ ì´ˆê¸°í™”
 
-        // º´ÇÕ ·çÇÁ ½ÃÀÛ
+        // ë³‘í•© ë£¨í”„ ì‹œì‘
         "loop_merge:\n\t"
-        "cmp %[li], %[mid]\n\t"            // leftIndex¿Í mid ºñ±³
-        "bgt left_done\n\t"                 // leftIndex°¡ midº¸´Ù Å©¸é left ºÎºĞ ¹è¿­ÀÌ ³¡³µÀ½À» ÀÇ¹Ì, left_doneÀ¸·Î Á¡ÇÁ
-        "cmp %[ri], %[high]\n\t"           // rightIndex¿Í high ºñ±³
-        "bgt right_done\n\t"                // rightIndex°¡ highº¸´Ù Å©¸é right ºÎºĞ ¹è¿­ÀÌ ³¡³µÀ½À» ÀÇ¹Ì, right_doneÀ¸·Î Á¡ÇÁ
+        "cmp %[li], %[mid]\n\t"            // leftIndexì™€ mid ë¹„êµ
+        "bgt left_done\n\t"                 // leftIndexê°€ midë³´ë‹¤ í¬ë©´ left ë¶€ë¶„ ë°°ì—´ì´ ëë‚¬ìŒì„ ì˜ë¯¸, left_doneìœ¼ë¡œ ì í”„
+        "cmp %[ri], %[high]\n\t"           // rightIndexì™€ high ë¹„êµ
+        "bgt right_done\n\t"                // rightIndexê°€ highë³´ë‹¤ í¬ë©´ right ë¶€ë¶„ ë°°ì—´ì´ ëë‚¬ìŒì„ ì˜ë¯¸, right_doneìœ¼ë¡œ ì í”„
 
-        // µÎ ºÎºĞ ¹è¿­ÀÇ ÇöÀç ¿ä¼Ò¸¦ ·Îµå
-        "ldr r5, [%[a], %[li], LSL #2]\n\t"  // a[leftIndex]ÀÇ °ªÀ» r5¿¡ ·Îµå
-        "ldr r6, [%[a], %[ri], LSL #2]\n\t"  // a[rightIndex]ÀÇ °ªÀ» r6¿¡ ·Îµå
+        // ë‘ ë¶€ë¶„ ë°°ì—´ì˜ í˜„ì¬ ìš”ì†Œë¥¼ ë¡œë“œ
+        "ldr r5, [%[a], %[li], LSL #2]\n\t"  // a[leftIndex]ì˜ ê°’ì„ r5ì— ë¡œë“œ
+        "ldr r6, [%[a], %[ri], LSL #2]\n\t"  // a[rightIndex]ì˜ ê°’ì„ r6ì— ë¡œë“œ
 
-        // ºñ±³ ¹× temp¿¡ ÀúÀå
+        // ë¹„êµ ë° tempì— ì €ì¥
         "cmp r5, r6\n\t"
-        "bgt copy_right\n\t"                // r5 > r6 ÀÌ¸é ¿À¸¥ÂÊ ¿ä¼Ò¸¦ temp¿¡ º¹»ç
+        "bgt copy_right\n\t"                // r5 > r6 ì´ë©´ ì˜¤ë¥¸ìª½ ìš”ì†Œë¥¼ tempì— ë³µì‚¬
 
         "copy_left:\n\t"
-        "str r5, [%[temp], %[ti], LSL #2]\n\t"  // temp[tempIndex]¿¡ a[leftIndex]°ª ÀúÀå
-        "add %[li], %[li], #1\n\t"         // leftIndex Áõ°¡
-        "b increment_temp\n\t"             // tempIndex Áõ°¡·Î Á¡ÇÁ
+        "str r5, [%[temp], %[ti], LSL #2]\n\t"  // temp[tempIndex]ì— a[leftIndex]ê°’ ì €ì¥
+        "add %[li], %[li], #1\n\t"         // leftIndex ì¦ê°€
+        "b increment_temp\n\t"             // tempIndex ì¦ê°€ë¡œ ì í”„
 
         "copy_right:\n\t"
-        "str r6, [%[temp], %[ti], LSL #2]\n\t"  // temp[tempIndex]¿¡ a[rightIndex]°ª ÀúÀå
-        "add %[ri], %[ri], #1\n\t"         // rightIndex Áõ°¡
+        "str r6, [%[temp], %[ti], LSL #2]\n\t"  // temp[tempIndex]ì— a[rightIndex]ê°’ ì €ì¥
+        "add %[ri], %[ri], #1\n\t"         // rightIndex ì¦ê°€
 
         "increment_temp:\n\t"
-        "add %[ti], %[ti], #1\n\t"         // tempIndex Áõ°¡
-        "b loop_merge\n\t"                 // º´ÇÕ ·çÇÁ·Î µ¹¾Æ°¡±â
+        "add %[ti], %[ti], #1\n\t"         // tempIndex ì¦ê°€
+        "b loop_merge\n\t"                 // ë³‘í•© ë£¨í”„ë¡œ ëŒì•„ê°€ê¸°
 
         "left_done:\n\t"
         "right_done:\n\t"
         "check_left:\n\t"
-        // ³²Àº ¿ŞÂÊ ºÎºĞ ¹è¿­ ¿ä¼Ò¸¦ temp¿¡ º¹»ç
-        // leftIndex°¡ mid º¸´Ù Å©Áö ¾ÊÀº °æ¿ì (Áï, ¾ÆÁ÷ ¿ŞÂÊ ºÎºĞ ¹è¿­¿¡ ¿ä¼Ò°¡ ³²¾ÆÀÖ´Â °æ¿ì) °è¼Ó ÁøÇà
+        // ë‚¨ì€ ì™¼ìª½ ë¶€ë¶„ ë°°ì—´ ìš”ì†Œë¥¼ tempì— ë³µì‚¬
+        // leftIndexê°€ mid ë³´ë‹¤ í¬ì§€ ì•Šì€ ê²½ìš° (ì¦‰, ì•„ì§ ì™¼ìª½ ë¶€ë¶„ ë°°ì—´ì— ìš”ì†Œê°€ ë‚¨ì•„ìˆëŠ” ê²½ìš°) ê³„ì† ì§„í–‰
         "cmp %[li], %[mid]\n\t"
-        "bgt end_left\n\t"           // rightIndex°¡ highº¸´Ù Å©¸é ·çÇÁ¸¦ Á¾·áÇÏ°í merge ÀÛ¾÷À» ¸¶¹«¸®
-        "ldr r5, [%[a], %[li], LSL #2]\n\t" // ¾÷µ¥ÀÌÆ®µÈ a[leftIndex]ÀÇ °ªÀ» r5¿¡ ·Îµå
-        "str r5, [%[temp], %[ti], LSL #2]\n\t" // r5 ·¹Áö½ºÅÍÀÇ °ªÀ» temp[tempIndex]¿¡ ÀúÀå
-        "add %[li], %[li], #1\n\t"       // leftIndex Áõ°¡
-        "add %[ti], %[ti], #1\n\t"       // tempIndex Áõ°¡
-        "b check_left\n\t"                 // ´Ù½Ã check_left ·¹ÀÌºí·Î Á¡ÇÁÇÏ¿© ³²Àº ¿À¸¥ÂÊ ¿ä¼Ò¸¦ °è¼Ó º¹»ç
+        "bgt end_left\n\t"           // rightIndexê°€ highë³´ë‹¤ í¬ë©´ ë£¨í”„ë¥¼ ì¢…ë£Œí•˜ê³  merge ì‘ì—…ì„ ë§ˆë¬´ë¦¬
+        "ldr r5, [%[a], %[li], LSL #2]\n\t" // ì—…ë°ì´íŠ¸ëœ a[leftIndex]ì˜ ê°’ì„ r5ì— ë¡œë“œ
+        "str r5, [%[temp], %[ti], LSL #2]\n\t" // r5 ë ˆì§€ìŠ¤í„°ì˜ ê°’ì„ temp[tempIndex]ì— ì €ì¥
+        "add %[li], %[li], #1\n\t"       // leftIndex ì¦ê°€
+        "add %[ti], %[ti], #1\n\t"       // tempIndex ì¦ê°€
+        "b check_left\n\t"                 // ë‹¤ì‹œ check_left ë ˆì´ë¸”ë¡œ ì í”„í•˜ì—¬ ë‚¨ì€ ì˜¤ë¥¸ìª½ ìš”ì†Œë¥¼ ê³„ì† ë³µì‚¬
 
         "end_left:\n\t"
         "check_right:\n\t"
-        // ³²Àº ¿À¸¥ÂÊ ºÎºĞ ¹è¿­ ¿ä¼Ò¸¦ temp¿¡ º¹»ç
-        // rightIndex°¡ high º¸´Ù Å©Áö ¾ÊÀº °æ¿ì (Áï, ¾ÆÁ÷ ¿À¸¥ÂÊ ºÎºĞ ¹è¿­¿¡ ¿ä¼Ò°¡ ³²¾ÆÀÖ´Â °æ¿ì) °è¼Ó ÁøÇà
+        // ë‚¨ì€ ì˜¤ë¥¸ìª½ ë¶€ë¶„ ë°°ì—´ ìš”ì†Œë¥¼ tempì— ë³µì‚¬
+        // rightIndexê°€ high ë³´ë‹¤ í¬ì§€ ì•Šì€ ê²½ìš° (ì¦‰, ì•„ì§ ì˜¤ë¥¸ìª½ ë¶€ë¶„ ë°°ì—´ì— ìš”ì†Œê°€ ë‚¨ì•„ìˆëŠ” ê²½ìš°) ê³„ì† ì§„í–‰
         "cmp %[ri], %[high]\n\t"
-        "bgt finish_merge\n\t"           // leftIndex°¡ midº¸´Ù Å©¸é ·çÇÁ¸¦ Á¾·áÇÏ°í merge ÀÛ¾÷À» ¸¶¹«¸®
-        "ldr r6, [%[a], %[ri], LSL #2]\n\t"  // ¾÷µ¥ÀÌÆ®µÈ a[rightIndex]ÀÇ °ªÀ» r6¿¡ ·Îµå
-        "str r6, [%[temp], %[ti], LSL #2]\n\t" // r6 ·¹Áö½ºÅÍÀÇ °ªÀ» temp[tempIndex]¿¡ ÀúÀå
-        "add %[ri], %[ri], #1\n\t"       // rightIndex Áõ°¡
-        "add %[ti], %[ti], #1\n\t"       // tempIndex Áõ°¡
-        "b check_right\n\t"                // ´Ù½Ã check_right ·¹ÀÌºí·Î Á¡ÇÁÇÏ¿© ³²Àº ¿ŞÂÊ ¿ä¼Ò¸¦ °è¼Ó º¹»ç
+        "bgt finish_merge\n\t"           // leftIndexê°€ midë³´ë‹¤ í¬ë©´ ë£¨í”„ë¥¼ ì¢…ë£Œí•˜ê³  merge ì‘ì—…ì„ ë§ˆë¬´ë¦¬
+        "ldr r6, [%[a], %[ri], LSL #2]\n\t"  // ì—…ë°ì´íŠ¸ëœ a[rightIndex]ì˜ ê°’ì„ r6ì— ë¡œë“œ
+        "str r6, [%[temp], %[ti], LSL #2]\n\t" // r6 ë ˆì§€ìŠ¤í„°ì˜ ê°’ì„ temp[tempIndex]ì— ì €ì¥
+        "add %[ri], %[ri], #1\n\t"       // rightIndex ì¦ê°€
+        "add %[ti], %[ti], #1\n\t"       // tempIndex ì¦ê°€
+        "b check_right\n\t"                // ë‹¤ì‹œ check_right ë ˆì´ë¸”ë¡œ ì í”„í•˜ì—¬ ë‚¨ì€ ì™¼ìª½ ìš”ì†Œë¥¼ ê³„ì† ë³µì‚¬
 
         "finish_merge:\n\t"
-        // tempÀÇ ³»¿ëÀ» ¿ø·¡ÀÇ ¹è¿­ a¿¡ º¹»ç
-        "mov %[ti], #0\n\t"              // tempIndex¸¦ 0À¸·Î ÃÊ±âÈ­
+        // tempì˜ ë‚´ìš©ì„ ì›ë˜ì˜ ë°°ì—´ aì— ë³µì‚¬
+        "mov %[ti], #0\n\t"              // tempIndexë¥¼ 0ìœ¼ë¡œ ì´ˆê¸°í™”
         "copy_back_loop:\n\t"
-        "cmp %[ti], %[n]\n\t"            // tempIndex¿Í nÀ» ºñ±³
-        "bge end_copy_back\n\t"          // tempIndex°¡ n ÀÌ»óÀÌ¸é ¸ğµç ¿ä¼Ò¸¦ º¹»çÇßÀ½À» ÀÇ¹ÌÇÏ°í, º¹»ç ·çÇÁ¸¦ Á¾·á
-        "ldr r5, [%[temp], %[ti], LSL #2]\n\t" // temp[tempIndex]¿¡¼­ ¿ä¼Ò¸¦ r5 ·¹Áö½ºÅÍ·Î ·Îµå
-        "str r5, [%[a], %[low], LSL #2]\n\t" // r5 ·¹Áö½ºÅÍÀÇ °ªÀ» a[low + tempIndex]¿¡ ÀúÀå
-        "add %[low], %[low], #1\n\t"     // low °ªÀ» Áõ°¡½ÃÅ°¸ç ¹è¿­ ÀÎµ¦½º¸¦ Á¶Á¤ (¿©±â¼­ ½Ç¼öÇßÀ½)
-        "add %[ti], %[ti], #1\n\t"       // tempIndex Áõ°¡
-        "b copy_back_loop\n\t"           // ´Ù½Ã copy_back_loop ·¹ÀÌºí·Î Á¡ÇÁÇÏ¿© ³ª¸ÓÁö ¿ä¼Ò¸¦ °è¼Ó º¹»ç
+        "cmp %[ti], %[n]\n\t"            // tempIndexì™€ nì„ ë¹„êµ
+        "bge end_copy_back\n\t"          // tempIndexê°€ n ì´ìƒì´ë©´ ëª¨ë“  ìš”ì†Œë¥¼ ë³µì‚¬í–ˆìŒì„ ì˜ë¯¸í•˜ê³ , ë³µì‚¬ ë£¨í”„ë¥¼ ì¢…ë£Œ
+        "ldr r5, [%[temp], %[ti], LSL #2]\n\t" // temp[tempIndex]ì—ì„œ ìš”ì†Œë¥¼ r5 ë ˆì§€ìŠ¤í„°ë¡œ ë¡œë“œ
+        "str r5, [%[a], %[low], LSL #2]\n\t" // r5 ë ˆì§€ìŠ¤í„°ì˜ ê°’ì„ a[low + tempIndex]ì— ì €ì¥
+        "add %[low], %[low], #1\n\t"     // low ê°’ì„ ì¦ê°€ì‹œí‚¤ë©° ë°°ì—´ ì¸ë±ìŠ¤ë¥¼ ì¡°ì • (ì—¬ê¸°ì„œ ì‹¤ìˆ˜í–ˆìŒ)
+        "add %[ti], %[ti], #1\n\t"       // tempIndex ì¦ê°€
+        "b copy_back_loop\n\t"           // ë‹¤ì‹œ copy_back_loop ë ˆì´ë¸”ë¡œ ì í”„í•˜ì—¬ ë‚˜ë¨¸ì§€ ìš”ì†Œë¥¼ ê³„ì† ë³µì‚¬
 
         "end_copy_back:\n\t"
         :
@@ -242,7 +242,7 @@ void merge_ASM(int* a, int low, int mid, int high) {
         : "r5", "r6", "cc", "memory"
         );
 
-    free(temp); // ÀÓ½Ã ¹è¿­ ÇØÁ¦
+    free(temp); // ì„ì‹œ ë°°ì—´ í•´ì œ
 }
 
 void printArray(int* a, int size) {
