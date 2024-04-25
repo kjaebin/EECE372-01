@@ -187,6 +187,7 @@ void mergesort_ASM(int* a, int low, int high) {
 
 void merge_ASM(int* a, int low, int mid, int high) {
     int* temp = (int*)malloc((high - low + 1) * sizeof(int)); // 임시 배열을 위한 메모리 할당
+    int leftindex, rightindex, tempindex, n;
 
     asm(
         // 초기 레지스터 설정
