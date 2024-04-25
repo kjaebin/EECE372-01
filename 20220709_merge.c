@@ -8,32 +8,24 @@ void merge_C(int* a, int low, int mid, int high);
 void mergesort_ASM(int* a, int low, int high);
 void merge_ASM(int* a, int low, int mid, int high);
 
-// Helper function to print arrays
-void printArray(int* a, int size);
-
 int main(int argc, char* argv[]) {
     srand(time(NULL));
 
     // user input
     if (argc != 2) {
-        printf("Usage: %s <number of elements>\n", argv[0]);
+        printf("wrong number of input arguments: %s (number of elements)\n", argv[0]);
         return 1;
     }
 
     int n = atoi(argv[1]);  // Number of elements in array
 
     if (n <= 0) {
-        printf("Number of elements must be positive.\n");
+        printf("Wrong input entered.\n");
         return 1;
     }
 
     int* data = (int*)malloc(sizeof(int) * n);
     int* data_asm = (int*)malloc(sizeof(int) * n);
-
-    if (!data || !data_asm) {
-        printf("Memory allocation failed.\n");
-        return 1;
-    }
 
     // variable intialization
     int i = 0;
@@ -100,7 +92,7 @@ int main(int argc, char* argv[]) {
 
 void mergesort_C(int* a, int low, int high) {
     if (low < high) { // Only proceed if there are at least two elements to sort
-        int mid = low + (high - low) / 2; // Find the midpoint to avoid overflow
+        int mid = low + (high - low) / 2; // Find the midpoint
 
         // Recursively sort the left half
         mergesort_C(a, low, mid);
@@ -156,13 +148,13 @@ void mergesort_ASM(int* a, int low, int high) {
         
         // 비교 연산을 수행하여 low와 high를 비교
         "mov r0, %[a]\n\t"                 // 배열 포인터 a를 r0에 설정
-        "cmp r1, r2\n\t"               // 비교: low >= high
+        "cmp r1, r2\n\t"                   // 비교: low >= high
         "bge end_mergesort\n\t"            // 만약 low >= high 이면, 재귀의 베이스 케이스에 도달했으므로 end_mergesort로 분기
 
         // 중간 지점 계산
-        "sub r3, r2, r1\n\t"           // r3 = high - low, 배열 길이 계산
+        "sub r3, r2, r1\n\t"               // r3 = high - low, 배열 길이 계산
         "lsr r3, r3, #1\n\t"               // r3 = (high - low) / 2, 오른쪽으로 한 비트 시프트하여 2로 나눔
-        "add r3, r1, r3\n\t"             // r3 = low + (high - low) / 2, 중간 인덱스 계산
+        "add r3, r1, r3\n\t"               // r3 = low + (high - low) / 2, 중간 인덱스 계산
 
         // 첫 번째 재귀 호출: 왼쪽 부분 배열 정렬
         "push {r0-r3, lr}\n\t"             // r0부터 r3까지의 레지스터와 링크 레지스터(lr)를 스택에 저장
@@ -194,19 +186,17 @@ void mergesort_ASM(int* a, int low, int high) {
 }
 
 void merge_ASM(int* a, int low, int mid, int high) {
-    int leftIndex, rightIndex, tempIndex;
     int* temp = (int*)malloc((high - low + 1) * sizeof(int)); // 임시 배열을 위한 메모리 할당
-    int n;
 
-    asm (
+    asm(
         // 초기 레지스터 설정
-        "mov %[n], %[high]\n\t"
-        "sub %[n], %[low]\n\t"
-        "add %[n], #1\n\t"                 // n을 high-low+1으로 초기화
         "mov %[li], %[low]\n\t"            // leftIndex를 low 값으로 초기화
         "mov %[ri], %[mid]\n\t"            // rightIndex를 mid 값으로 초기화
         "add %[ri], %[ri], #1\n\t"         // rightIndex를 mid+1로 설정하여 오른쪽 부분 배열의 시작점으로 설정
         "mov %[ti], #0\n\t"                // tempIndex를 0으로 초기화
+        "mov %[n], %[high]\n\t"
+        "sub %[n], %[n], %[low}\n\t"
+        "add %[n], %[n], #1\n\t"           // n을 high-low+1 값으로 초기화
 
         // 병합 루프 시작
         "loop_merge:\n\t"
@@ -281,11 +271,4 @@ void merge_ASM(int* a, int low, int mid, int high) {
         );
 
     free(temp); // 임시 배열 해제
-}
-
-void printArray(int* a, int size) {
-    for (int i = 0; i < size; i++) {
-        printf("%d ", a[i]);
-    }
-    printf("\n");
 }
