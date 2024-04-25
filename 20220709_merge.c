@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-// Function prototypes
 void mergesort_C(int* a, int low, int high);
 void merge_C(int* a, int low, int mid, int high);
 void mergesort_ASM(int* a, int low, int high);
