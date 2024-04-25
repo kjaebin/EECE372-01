@@ -11,24 +11,19 @@ int main(int argc, char* argv[]) {
 
 	// user input
     if (argc != 2) {
-        printf("Usage: %s <number of elements>\n", argv[0]);
+        printf("wrong number of input arguments: %s (number of elements)\n", argv[0]);
         return 1;
     }
 
     int n = atoi(argv[1]);  // Number of elements in array
 
     if (n <= 0) {
-        printf("Number of elements must be positive.\n");
+        printf("Wrong input entered.\n");
         return 1;
     }
 
     int* data = (int*)malloc(sizeof(int) * n);
     int* data_asm = (int*)malloc(sizeof(int) * n);
-
-    if (!data || !data_asm) {
-        printf("Memory allocation failed.\n");
-        return 1;
-    }
 
 	// variable intialization
     int i = 0;
