@@ -145,7 +145,7 @@ void mergesort_ASM(int* a, int low, int high) {
         "cmpeq r2, #0\n\t"
         "moveq r1, %[l]\n\t"               // Set r4 to low if not already set
         "moveq r2, %[h]\n\t"               // Set r5 to high if not already set
-        
+
         // 비교 연산을 수행하여 low와 high를 비교
         "mov r0, %[a]\n\t"                 // 배열 포인터 a를 r0에 설정
         "cmp r1, r2\n\t"                   // 비교: low >= high
@@ -190,7 +190,7 @@ void merge_ASM(int* a, int low, int mid, int high) {
     int* temp = (int*)malloc((high - low + 1) * sizeof(int)); // 임시 배열을 위한 메모리 할당
     int n;
 
-    asm (
+    asm(
         // 초기 레지스터 설정
         "mov %[n], %[high]\n\t"
         "sub %[n], %[low]\n\t"
