@@ -13,9 +13,10 @@
 int fd;
 char buf[256];
 
+int pin_num[] = {29, 28, 23, 22, 21, 27, 26};
+
 void updateLEDs(char firstChar) {
     const int PIN_COUNT = 7;
-    int pin_num[] = {29, 28, 23, 22, 21, 27, 26};
     int hex_table[16][7] = {
         {1, 1, 1, 1, 1, 1, 0}, // 0
         {0, 1, 1, 0, 0, 0, 0}, // 1
