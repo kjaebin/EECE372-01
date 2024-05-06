@@ -1,14 +1,14 @@
 #include <stdio.h>
 #include <wiringPi.h>
 
-#define SWITCH_PIN 26
-#define SEGMENT_A 21
-#define SEGMENT_B 20
-#define SEGMENT_C 13
-#define SEGMENT_D 6
-#define SEGMENT_E 5
-#define SEGMENT_F 16
-#define SEGMENT_G 12
+#define SWITCH_PIN 25
+#define SEGMENT_A 29
+#define SEGMENT_B 28
+#define SEGMENT_C 23
+#define SEGMENT_D 22
+#define SEGMENT_E 21
+#define SEGMENT_F 27
+#define SEGMENT_G 26
 
 int main(void) {
 
@@ -33,7 +33,7 @@ int main(void) {
         {1, 0, 0, 1, 1, 1, 1},  // E
         {1, 0, 0, 0, 1, 1, 1}   // F
     };
-    int pin_num[] = { SEGMENT_A, SEGMENT_B, SEGMENT_C, SEGMENT_D, SEGMENT_E, SEGMENT_F, SEGMENT_G };
+    int pin_num[] = {SEGMENT_A, SEGMENT_B, SEGMENT_C, SEGMENT_D, SEGMENT_E, SEGMENT_F, SEGMENT_G};
 
     wiringPiSetup();
     pinMode(SWITCH_PIN, INPUT);
@@ -45,14 +45,15 @@ int main(void) {
 
     while (1) {
         if (digitalRead(SWITCH_PIN) == HIGH) {
+            delay(200); // Debounce delay
             count++;
-            if (count >= 16)
-                count = 0;
-            for (i = 0; i < PIN_COUNT; i++)
+            if (count >= 16) count = 0;
+            for (i = 0; i < PIN_COUNT; i++) {
                 digitalWrite(pin_num[i], hex_table[count][i]);
+            }
         }
 
-        delay(180); // Delay to debounce switch and avoid rapid increment
+        delay(100); // Small delay to reduce CPU usage
     }
     return 0;
 }
