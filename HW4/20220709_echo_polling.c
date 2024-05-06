@@ -159,13 +159,13 @@ int main()
 						digitalWrite(pin_num[i], hex_table[15][i]);
 				}
 				else {
-					digitalWrite(0, 0);
-					digitalWrite(1, 1);
-					digitalWrite(2, 1);
-					digitalWrite(3, 0);
-					digitalWrite(4, 1);
-					digitalWrite(5, 1);
-					digitalWrite(6, 1);
+					digitalWrite(29, 0);
+					digitalWrite(28, 1);
+					digitalWrite(23, 1);
+					digitalWrite(22, 0);
+					digitalWrite(21, 1);
+					digitalWrite(27, 1);
+					digitalWrite(26, 1);
 				}
 			}
 
