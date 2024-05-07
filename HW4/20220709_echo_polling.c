@@ -81,6 +81,8 @@ int main() {
     tcsetattr(fd, TCSANOW, &newtio);
     tcflush(fd, TCIFLUSH);
 
+    write(fd, "Polling method\r\n", 44);
+    
     struct pollfd fds[1];
     fds[0].fd = fd;
     fds[0].events = POLLIN;
