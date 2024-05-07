@@ -57,15 +57,20 @@ void task() {
 }
 
 int main() {
-    wiringPiSetup(); // Setup the WiringPi library
+    wiringPiSetup();
     for (int i = 0; i < 7; i++) {
         pinMode(pin_num[i], OUTPUT);
     }
 
     int fd;
     struct termios newtio;
+    char buf[256];
 
     fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
+    if (fd < 0) {
+        fprintf(stderr, "Failed to open port: %s.\r\n", strerror(errno));
+        return -1;
+    }
 
     memset(&newtio, 0, sizeof(newtio));
     newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
@@ -78,11 +83,8 @@ int main() {
     tcsetattr(fd, TCSANOW, &newtio);
     tcflush(fd, TCIFLUSH);
 
-    write(fd, "Interrupt method\r\n", 25);
-    
-    char buf[256];
     while (1) {
-        task(); // Continuous background task
+        task();
         int cnt = read(fd, buf, sizeof(buf) - 1);
         if (cnt > 0) {
             buf[cnt] = '\0'; // Null-terminate the string
