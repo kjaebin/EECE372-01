@@ -82,6 +82,8 @@ int main() {
     tcsetattr(fd, TCSANOW, &newtio);
     tcflush(fd, TCIFLUSH);
 
+    write(fd, "Interrupt method\r\n", 25);
+    
     char buf[256];
     while (1) {
         task(); // Continuous background task
