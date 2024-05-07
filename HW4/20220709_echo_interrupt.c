@@ -40,6 +40,7 @@ void updateLEDs(char firstChar) {
             digitalWrite(pin_num[i], hex_table[index][i]);
         }
     } else {
+        // Display 'X' for invalid input
         digitalWrite(29, 0);
         digitalWrite(28, 1);
         digitalWrite(23, 1);
@@ -77,10 +78,11 @@ int main() {
     newtio.c_oflag = 0;
     newtio.c_lflag = 0;
     newtio.c_cc[VTIME] = 0;
-    newtio.c_cc[VMIN] = 1;
+    newtio.c_cc[VMIN] = 0;  // VMIN set to 0 for non-blocking mode
 
     tcsetattr(fd, TCSANOW, &newtio);
     tcflush(fd, TCIFLUSH);
+    fcntl(fd, F_SETFL, O_NONBLOCK);  // Set the file descriptor to non-blocking mode
 
     write(fd, "Interrupt method active\r\n", 26);
 
@@ -88,6 +90,7 @@ int main() {
         task();
         int cnt = read(fd, buf, sizeof(buf) - 1);
         if (cnt > 0) {
+            buf[cnt] = '\0'; // Null-terminate the string
             write(fd, "Echo: ", 6); // Send back to the serial port
             write(fd, buf, strlen(buf));
             write(fd, "\r\n", 2);
