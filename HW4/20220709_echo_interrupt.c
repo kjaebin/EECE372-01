@@ -83,6 +83,8 @@ int main() {
     tcsetattr(fd, TCSANOW, &newtio);
     tcflush(fd, TCIFLUSH);
 
+    write(fd, "Interrupt method\r\n", 25);
+    
     while (1) {
         task();
         int cnt = read(fd, buf, sizeof(buf) - 1);
