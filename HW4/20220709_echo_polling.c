@@ -70,7 +70,7 @@ int main() {
 
     fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
     if (fd < 0) {
-        fprintf(stderr, "Failed to open port: %s.\r\n", strerror(errno));
+        perror("Failed to open port");
         return -1;
     }
 
@@ -85,7 +85,8 @@ int main() {
     tcsetattr(fd, TCSANOW, &newtio);
     tcflush(fd, TCIFLUSH);
 
-    printf("Polling method active. Waiting for input...\n");
+    write(fd, "Polling method active. Waiting for input...\n", 44);
+
     poll_handler.fd = fd;
     poll_handler.events = POLLIN | POLLERR;
 
@@ -96,12 +97,14 @@ int main() {
                 int cnt = read(fd, buf, sizeof(buf));
                 if (cnt > 0) {
                     buf[cnt] = '\0';
-                    printf("Echo: %s\r\n", buf);
+                    write(fd, "Echo: ", 6);
+                    write(fd, buf, strlen(buf));
+                    write(fd, "\r\n", 2);
                     updateLEDs(buf[0]);
                 }
             }
             if (poll_handler.revents & POLLERR) {
-                printf("Error in communication. Abort program\r\n");
+                write(fd, "Error in communication. Abort program\r\n", 40);
                 break;
             }
         }
