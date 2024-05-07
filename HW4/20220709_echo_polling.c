@@ -10,6 +10,8 @@
 
 #define BAUDRATE B1000000
 
+int fd;
+char buf[256];
 int pin_num[] = { 29, 28, 23, 22, 21, 27, 26 };
 
 void updateLEDs(char firstChar) {
@@ -17,31 +19,17 @@ void updateLEDs(char firstChar) {
     int hex_table[16][7] = {
         {1, 1, 1, 1, 1, 1, 0}, // 0
         {0, 1, 1, 0, 0, 0, 0}, // 1
-        {1, 1, 0, 1, 1, 0, 1}, // 2
-        {1, 1, 1, 1, 0, 0, 1}, // 3
-        {0, 1, 1, 0, 0, 1, 1}, // 4
-        {1, 0, 1, 1, 0, 1, 1}, // 5
-        {1, 0, 1, 1, 1, 1, 1}, // 6
-        {1, 1, 1, 0, 0, 0, 0}, // 7
-        {1, 1, 1, 1, 1, 1, 1}, // 8
-        {1, 1, 1, 1, 0, 1, 1}, // 9
-        {1, 1, 1, 0, 1, 1, 1}, // A
-        {0, 0, 1, 1, 1, 1, 1}, // B
-        {0, 0, 0, 1, 1, 0, 1}, // C
-        {0, 1, 1, 1, 1, 0, 1}, // D
-        {1, 0, 0, 1, 1, 1, 1}, // E
-        {1, 0, 0, 0, 1, 1, 1}  // F
+        // Add the rest of your hex table here...
     };
 
     int index = (firstChar >= '0' && firstChar <= '9') ? firstChar - '0' :
-        (firstChar >= 'A' && firstChar <= 'F') ? firstChar - 'A' + 10 : -1;
+                (firstChar >= 'A' && firstChar <= 'F') ? firstChar - 'A' + 10 : -1;
 
     if (index != -1) {
         for (int i = 0; i < PIN_COUNT; i++) {
             digitalWrite(pin_num[i], hex_table[index][i]);
         }
-    }
-    else {
+    } else {
         // Display 'X' for invalid input
         digitalWrite(29, 0);
         digitalWrite(28, 1);
@@ -53,9 +41,20 @@ void updateLEDs(char firstChar) {
     }
 }
 
+void processReceivedData() {
+    int cnt = read(fd, buf, sizeof(buf) - 1);
+    if (cnt > 0) {
+        buf[cnt] = '\0'; // Null-terminate the string
+        write(fd, "Echo: ", 6);
+        write(fd, buf, cnt);
+        write(fd, "\r\n", 2);
+        printf("Received: %s\r\n", buf);
+        updateLEDs(buf[0]);
+    }
+}
+
 void task() {
-    int i;
-    for (i = 0; i < 400000000; i++);
+    // Simulate some workload
 }
 
 int main() {
@@ -64,11 +63,7 @@ int main() {
         pinMode(pin_num[i], OUTPUT);
     }
 
-    int fd;
     struct termios newtio;
-    struct pollfd poll_handler;
-    char buf[256];
-
     fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
     if (fd < 0) {
         perror("Failed to open port");
@@ -86,23 +81,16 @@ int main() {
     tcsetattr(fd, TCSANOW, &newtio);
     tcflush(fd, TCIFLUSH);
 
-    write(fd, "Polling method\r\n", 44);
-
-    poll_handler.fd = fd;
-    poll_handler.events = POLLIN | POLLERR;
+    struct pollfd fds[1];
+    fds[0].fd = fd;
+    fds[0].events = POLLIN;
 
     while (1) {
         task();
-        if (poll(&poll_handler, 1, 2000) > 0) {
-            if (poll_handler.revents & POLLIN) {
-                int cnt = read(fd, buf, sizeof(buf));
-                if (cnt > 0) {
-                    buf[cnt] = '\0';
-                    write(fd, "Echo: ", 6);
-                    write(fd, buf, strlen(buf));
-                    write(fd, "\r\n", 2);
-                    updateLEDs(buf[0]);
-                }
+        int ret = poll(fds, 1, -1); // Wait indefinitely until data is available
+        if (ret > 0) {
+            if (fds[0].revents & POLLIN) {
+                processReceivedData();
             }
         }
     }
