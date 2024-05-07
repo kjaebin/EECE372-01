@@ -34,13 +34,14 @@ void updateLEDs(char firstChar) {
     };
 
     int index = (firstChar >= '0' && firstChar <= '9') ? firstChar - '0' :
-                (firstChar >= 'A' && firstChar <= 'F') ? firstChar - 'A' + 10 : -1;
+        (firstChar >= 'A' && firstChar <= 'F') ? firstChar - 'A' + 10 : -1;
 
     if (index != -1) {
         for (int i = 0; i < PIN_COUNT; i++) {
             digitalWrite(pin_num[i], hex_table[index][i]);
         }
-    } else {
+    }
+    else {
         // Display 'X' for invalid input
         digitalWrite(29, 0);
         digitalWrite(28, 1);
@@ -85,7 +86,7 @@ int main() {
     tcsetattr(fd, TCSANOW, &newtio);
     tcflush(fd, TCIFLUSH);
 
-    write(fd, "Polling method active. Waiting for input...\n", 44);
+    write(fd, "Polling method\r\n", 44);
 
     poll_handler.fd = fd;
     poll_handler.events = POLLIN | POLLERR;
