@@ -78,13 +78,14 @@ int main() {
     newtio.c_oflag = 0;
     newtio.c_lflag = 0;
     newtio.c_cc[VTIME] = 0;
-    newtio.c_cc[VMIN] = 1;
+    newtio.c_cc[VMIN] = 0;  // VMIN set to 0 for non-blocking mode
 
     tcsetattr(fd, TCSANOW, &newtio);
     tcflush(fd, TCIFLUSH);
+    fcntl(fd, F_SETFL, O_NONBLOCK);  // Set the file descriptor to non-blocking mode
 
-    write(fd, "Interrupt method\r\n", 25);
-    
+    write(fd, "Interrupt method active\r\n", 26);
+
     while (1) {
         task();
         int cnt = read(fd, buf, sizeof(buf) - 1);
