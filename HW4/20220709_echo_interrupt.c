@@ -100,7 +100,7 @@ int main() {
     newtio.c_oflag = 0;
     newtio.c_lflag = 0;
     newtio.c_cc[VTIME] = 0;
-    newtio.c_cc[VMIN] = 1;
+    newtio.c_cc[VMIN] = 0;
 
     tcsetattr(fd, TCSANOW, &newtio);
     tcflush(fd, TCIFLUSH);
