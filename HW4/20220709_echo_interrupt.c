@@ -13,7 +13,7 @@
 int fd;
 char buf[256];
 
-int pin_num[] = {29, 28, 23, 22, 21, 27, 26};
+int pin_num[] = { 29, 28, 23, 22, 21, 27, 26 };
 
 void updateLEDs(char firstChar) {
     const int PIN_COUNT = 7;
@@ -37,13 +37,14 @@ void updateLEDs(char firstChar) {
     };
 
     int index = (firstChar >= '0' && firstChar <= '9') ? firstChar - '0' :
-                (firstChar >= 'A' && firstChar <= 'F') ? firstChar - 'A' + 10 : -1;
+        (firstChar >= 'A' && firstChar <= 'F') ? firstChar - 'A' + 10 : -1;
 
     if (index != -1) {
         for (int i = 0; i < PIN_COUNT; i++) {
             digitalWrite(pin_num[i], hex_table[index][i]);
         }
-    } else {
+    }
+    else {
         // Display 'X' for invalid input
         digitalWrite(29, 0);
         digitalWrite(28, 1);
@@ -59,6 +60,9 @@ void callback_function(int status) {
     int cnt = read(fd, buf, 256);
     if (cnt > 0) {
         buf[cnt] = '\0';
+        write(fd, "echo: ", 6);
+        write(fd, buf, cnt);
+        write(fd, "\r\n", 2);
         printf("Received: %s\r\n", buf);
         updateLEDs(buf[0]);
     }
@@ -101,7 +105,7 @@ int main() {
     tcsetattr(fd, TCSANOW, &newtio);
     tcflush(fd, TCIFLUSH);
 
-    write(fd, "Interrupt method active\r\n", 25);
+    write(fd, "Interrupt method\r\n", 25);
 
     while (1) {
         task(); // Continuous background task
