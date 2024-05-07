@@ -88,7 +88,7 @@ int main()
 		{1, 0, 0, 1, 1, 1, 1},  // E
 		{1, 0, 0, 0, 1, 1, 1}   // F
 	};
-    int pin_num[] = {29, 28, 23, 22, 21, 27, 26};
+	int pin_num[] = {29, 28, 23, 22, 21, 27, 26};
 
 	wiringPiSetup();
 	
@@ -166,16 +166,15 @@ int main()
 					for (i = 0; i < PIN_COUNT; i++)
 						digitalWrite(pin_num[i], hex_table[15][i]);				
 					}					
-                } else {
-        // Display 'X' for invalid input
-        digitalWrite(29, 0);
-        digitalWrite(28, 1);
-        digitalWrite(23, 1);
-        digitalWrite(22, 0);
-        digitalWrite(21, 1);
-        digitalWrite(27, 1);
-        digitalWrite(26, 1);
-    }
+				else {
+					digitalWrite(29, 0);
+					digitalWrite(28, 1);
+					digitalWrite(23, 1);
+					digitalWrite(22, 0);
+					digitalWrite(21, 1);
+					digitalWrite(27, 1);
+					digitalWrite(26, 1);
+					}
 				}	
 	return 0;
 }
