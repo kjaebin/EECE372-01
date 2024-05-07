@@ -1,59 +1,56 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <wiringPi.h>
 
-#define SWITCH_PIN 25
-#define SEGMENT_A 29
-#define SEGMENT_B 28
-#define SEGMENT_C 23
-#define SEGMENT_D 22
-#define SEGMENT_E 21
-#define SEGMENT_F 27
-#define SEGMENT_G 26
+#define SWITCH_PIN 29  // 입력 스위치에 연결된 GPIO 핀
+int SEGMENT_PINS[8] = {0, 7, 24, 23, 22, 2, 3, 25};  // 7-segment에 연결된 GPIO 핀들
 
-int main(void) {
-
-    int count = 0;
-    int i;
-    const int PIN_COUNT = 7;
-    const int hex_table[16][7] = {
-        {1, 1, 1, 1, 1, 1, 0},  // 0
-        {0, 1, 1, 0, 0, 0, 0},  // 1
-        {1, 1, 0, 1, 1, 0, 1},  // 2
-        {1, 1, 1, 1, 0, 0, 1},  // 3
-        {0, 1, 1, 0, 0, 1, 1},  // 4
-        {1, 0, 1, 1, 0, 1, 1},  // 5
-        {1, 0, 1, 1, 1, 1, 1},  // 6
-        {1, 1, 1, 0, 0, 0, 0},  // 7
-        {1, 1, 1, 1, 1, 1, 1},  // 8
-        {1, 1, 1, 1, 0, 1, 1},  // 9
-        {1, 1, 1, 0, 1, 1, 1},  // A
-        {0, 0, 1, 1, 1, 1, 1},  // B
-        {0, 0, 0, 1, 1, 0, 1},  // C
-        {0, 1, 1, 1, 1, 0, 1},  // D
-        {1, 0, 0, 1, 1, 1, 1},  // E
-        {1, 0, 0, 0, 1, 1, 1}   // F
+int main(){
+    int row = 0;
+    int btn_state = 0;
+    int sev_seg[16][8]={
+   {1,1,1,1,1,1,0,0},
+   {0,1,1,0,0,0,0,0},
+   {1,1,0,1,1,0,1,0},
+   {1,1,1,1,0,0,1,0},
+   {0,1,1,0,0,1,1,0},
+   {1,0,1,1,0,1,1,0},
+   {1,0,1,1,1,1,1,0},
+   {1,1,1,0,0,1,0,0},
+   {1,1,1,1,1,1,1,0},
+   {1,1,1,1,0,1,1,0},
+   {1,1,1,0,1,1,1,0},
+   {0,0,1,1,1,1,1,0},
+   {0,0,0,1,1,0,1,0},
+   {0,1,1,1,1,0,1,0},
+   {1,0,0,1,1,1,1,0},
+   {1,0,0,0,1,1,1,0}
     };
-    int pin_num[] = {SEGMENT_A, SEGMENT_B, SEGMENT_C, SEGMENT_D, SEGMENT_E, SEGMENT_F, SEGMENT_G};
-
-    wiringPiSetup();
-    pinMode(SWITCH_PIN, INPUT);
-    pullUpDnControl(SWITCH_PIN, PUD_DOWN); // Set pull-down resistor as the switch is connected to 3.3V
-
-    for (i = 0; i < PIN_COUNT; i++) {
-        pinMode(pin_num[i], OUTPUT);
-    };
-
-    while (1) {
-        if (digitalRead(SWITCH_PIN) == HIGH) {
-            delay(200); // Debounce delay
-            count++;
-            if (count >= 16) count = 0;
-            for (i = 0; i < PIN_COUNT; i++) {
-                digitalWrite(pin_num[i], hex_table[count][i]);
-            }
-        }
-
-        delay(100); // Small delay to reduce CPU usage
+    if (wiringPiSetup() == -1){
+   return 1;
     }
-    return 0;
+   
+    pinMode(SWITCH_PIN, INPUT);
+   for(int i = 0; i < 8; i++){
+   pinMode(SEGMENT_PINS[i], OUTPUT);
+   }
+   
+    while(1){
+   if(btn_state == 0) {
+      if(digitalRead(SWITCH_PIN) == 1){
+         row++;
+         row = row % 16;
+         btn_state = 1;
+      }
+   }
+   else if(btn_state == 1){
+      if(digitalRead(SWITCH_PIN) == 0){
+         btn_state = 0;
+      }
+   }
+   for(int i = 0; i < 8; i++){
+          digitalWrite(SEGMENT_PINS[i], sev_seg[row][i]);
+   }
+   delay(100);
+    }
 }
