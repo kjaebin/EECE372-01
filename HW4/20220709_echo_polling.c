@@ -104,10 +104,6 @@ int main() {
                     updateLEDs(buf[0]);
                 }
             }
-            if (poll_handler.revents & POLLERR) {
-                write(fd, "Error in communication. Abort program\r\n", 40);
-                break;
-            }
         }
     }
 
