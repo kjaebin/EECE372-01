@@ -66,10 +66,6 @@ int main() {
     struct termios newtio;
 
     fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
-    if (fd < 0) {
-        fprintf(stderr, "Failed to open port: %s.\r\n", strerror(errno));
-        return -1;
-    }
 
     memset(&newtio, 0, sizeof(newtio));
     newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
@@ -90,7 +86,6 @@ int main() {
         int cnt = read(fd, buf, sizeof(buf) - 1);
         if (cnt > 0) {
             buf[cnt] = '\0'; // Null-terminate the string
-            printf("Received: %s\r\n", buf); // This prints to console, adjust if needed for your environment
             write(fd, "Echo: ", 6); // Send back to the serial port
             write(fd, buf, strlen(buf));
             write(fd, "\r\n", 2);
