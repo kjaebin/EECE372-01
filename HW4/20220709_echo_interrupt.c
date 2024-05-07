@@ -2,16 +2,12 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <sys/signal.h>
 #include <termios.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <wiringPi.h>
 
 #define BAUDRATE B1000000
-
-int fd;
-char buf[256];
 
 int pin_num[] = { 29, 28, 23, 22, 21, 27, 26 };
 
@@ -37,14 +33,13 @@ void updateLEDs(char firstChar) {
     };
 
     int index = (firstChar >= '0' && firstChar <= '9') ? firstChar - '0' :
-        (firstChar >= 'A' && firstChar <= 'F') ? firstChar - 'A' + 10 : -1;
+                (firstChar >= 'A' && firstChar <= 'F') ? firstChar - 'A' + 10 : -1;
 
     if (index != -1) {
         for (int i = 0; i < PIN_COUNT; i++) {
             digitalWrite(pin_num[i], hex_table[index][i]);
         }
-    }
-    else {
+    } else {
         // Display 'X' for invalid input
         digitalWrite(29, 0);
         digitalWrite(28, 1);
@@ -53,18 +48,6 @@ void updateLEDs(char firstChar) {
         digitalWrite(21, 1);
         digitalWrite(27, 1);
         digitalWrite(26, 1);
-    }
-}
-
-void callback_function(int status) {
-    int cnt = read(fd, buf, 256);
-    if (cnt > 0) {
-        buf[cnt] = '\0';
-        write(fd, "echo: ", 6);
-        write(fd, buf, cnt);
-        write(fd, "\r\n", 2);
-        printf("Received: %s\r\n", buf);
-        updateLEDs(buf[0]);
     }
 }
 
@@ -79,8 +62,8 @@ int main() {
         pinMode(pin_num[i], OUTPUT);
     }
 
+    int fd;
     struct termios newtio;
-    struct sigaction saio;
 
     fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
     if (fd < 0) {
@@ -88,13 +71,7 @@ int main() {
         return -1;
     }
 
-    memset(&saio, 0, sizeof(saio));
-    saio.sa_handler = callback_function;
-    sigaction(SIGIO, &saio, NULL);
-
-    fcntl(fd, F_SETOWN, getpid());
-    fcntl(fd, F_SETFL, FASYNC);
-
+    memset(&newtio, 0, sizeof(newtio));
     newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
     newtio.c_iflag = ICRNL;
     newtio.c_oflag = 0;
@@ -105,10 +82,18 @@ int main() {
     tcsetattr(fd, TCSANOW, &newtio);
     tcflush(fd, TCIFLUSH);
 
-    write(fd, "Interrupt method\r\n", 25);
-
+    char buf[256];
     while (1) {
         task(); // Continuous background task
+        int cnt = read(fd, buf, sizeof(buf) - 1);
+        if (cnt > 0) {
+            buf[cnt] = '\0'; // Null-terminate the string
+            printf("Received: %s\r\n", buf); // This prints to console, adjust if needed for your environment
+            write(fd, "Echo: ", 6); // Send back to the serial port
+            write(fd, buf, strlen(buf));
+            write(fd, "\r\n", 2);
+            updateLEDs(buf[0]); // Update LEDs based on the first character received
+        }
     }
 
     close(fd);
