@@ -84,7 +84,7 @@ int main() {
     tcflush(fd, TCIFLUSH);
     fcntl(fd, F_SETFL, O_NONBLOCK);  // Set the file descriptor to non-blocking mode
 
-    write(fd, "Interrupt method active\r\n", 26);
+    write(fd, "Interrupt method\r\n", 26);
 
     while (1) {
         task();
