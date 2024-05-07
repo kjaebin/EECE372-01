@@ -57,11 +57,11 @@ void updateLEDs(char firstChar) {
 
 void callback_function(int status) {
     int cnt = read(fd, buf, 256);
-    buf[cnt] = '\0';
-    write(fd, "echo: ", 6);
-    write(fd, buf, cnt);
-    write(fd, "\r\n", 2);
-    printf("Received: %s\r\n", buf);
+    if (cnt > 0) {
+        buf[cnt] = '\0';
+        printf("Received: %s\r\n", buf);
+        updateLEDs(buf[0]);
+    }
 }
 
 void task() {
@@ -101,7 +101,7 @@ int main() {
     tcsetattr(fd, TCSANOW, &newtio);
     tcflush(fd, TCIFLUSH);
 
-    write(fd, "Interrupt method\r\n", 25);
+    write(fd, "Interrupt method active\r\n", 25);
 
     while (1) {
         task(); // Continuous background task
