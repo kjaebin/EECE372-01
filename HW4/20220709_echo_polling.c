@@ -10,7 +10,7 @@
 
 #define BAUDRATE B1000000
 
-int pin_num[] = { 29, 28, 23, 22, 21, 27, 26 };
+int pin_num[] = { 29, 28, 23, 22, 21, 27, 26 }; // WiringPi pin numbers
 
 void updateLEDs(char firstChar) {
     const int PIN_COUNT = 7;
@@ -34,14 +34,13 @@ void updateLEDs(char firstChar) {
     };
 
     int index = (firstChar >= '0' && firstChar <= '9') ? firstChar - '0' :
-        (firstChar >= 'A' && firstChar <= 'F') ? firstChar - 'A' + 10 : -1;
+                (firstChar >= 'A' && firstChar <= 'F') ? firstChar - 'A' + 10 : -1;
 
     if (index != -1) {
         for (int i = 0; i < PIN_COUNT; i++) {
             digitalWrite(pin_num[i], hex_table[index][i]);
         }
-    }
-    else {
+    } else {
         // Display 'X' for invalid input
         digitalWrite(29, 0);
         digitalWrite(28, 1);
@@ -71,11 +70,10 @@ int main() {
 
     fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
     if (fd < 0) {
-        perror("Failed to open port");
+        fprintf(stderr, "Failed to open port: %s.\r\n", strerror(errno));
         return -1;
     }
 
-    memset(&newtio, 0, sizeof(newtio));
     newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
     newtio.c_iflag = ICRNL;
     newtio.c_oflag = 0;
@@ -86,10 +84,11 @@ int main() {
     tcsetattr(fd, TCSANOW, &newtio);
     tcflush(fd, TCIFLUSH);
 
-    write(fd, "Polling method\r\n", 44);
-
     poll_handler.fd = fd;
     poll_handler.events = POLLIN | POLLERR;
+    poll_handler.revents = 0;
+
+    printf("Polling method active. Waiting for input...\n");
 
     while (1) {
         task();
@@ -98,14 +97,12 @@ int main() {
                 int cnt = read(fd, buf, sizeof(buf));
                 if (cnt > 0) {
                     buf[cnt] = '\0';
-                    write(fd, "Echo: ", 6);
-                    write(fd, buf, strlen(buf));
-                    write(fd, "\r\n", 2);
+                    printf("Received: %s\n", buf);
                     updateLEDs(buf[0]);
                 }
             }
             if (poll_handler.revents & POLLERR) {
-                write(fd, "Error in communication. Abort program\r\n", 40);
+                printf("Error in communication. Abort program\r\n");
                 break;
             }
         }
