@@ -54,7 +54,7 @@ int main()
 			}
 			write(fd, fbuf, sizeof(fbuf));
 			fclose(image);
-		]
+		}
 
 	}
 	return 0;
