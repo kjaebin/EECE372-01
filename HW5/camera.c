@@ -16,7 +16,7 @@ int main()
 	char fbuf[1024];
 	char buf[256];
 
-	fd = open("/dev/ttyAMA0", O_RDWR|O_NOCTTY);
+	fd = open("/dev/serial0", O_RDWR|O_NOCTTY);
 	if(fd<0) {
 		fprintf(stderr, "failed to open port: %s.\r\n", strerror(errno));
 		printf("Make sure you are executing in sudo.\r\n");
@@ -39,21 +39,23 @@ int main()
 	tcsetattr(fd, TCSANOW, &newtio);
 
 	while(1) {
-		int cnt = read(fd, buf, 256);
-		if (cnt > 0){
-		buf[cnt] = '\0';
-		printf("Received: %s\r\n",buf);
-		if (strcmp(buf, "c") == 0 || strcmp(buf, "C") == 0 ) {
-			system("raspistill -w 280 -h 280 -t 1 -o test.bmp");
-			FILE* file = fopen("test.bmp", "rb");
-			while(!feof(file)){
-			int cntbp = fread(fbuf,1 ,1024, file);
-			write(fd, fbuf, cntbp);
+
+		read(fd, buf, sizeof(buf));
+		char first = buf[0];
+		if ((first == 'c')\\(first == 'C'))[
+			system("libcamera-still --width 640 --height 480 -o 20220709_image.bmp");
+			FILE* image = fopen("20220709_image.bmp", "rb");
+			//printf("cheeze/r/n");
+			whlie(fread(fbuf, sizeof(char), sizeof(buf), image) == sizeof(fbuf)) {
+				if (feof(image) == 1) {
+					break;
+				}
+				write(fd, fbuf, sizeof(fbuf));
 			}
-			fclose(file);
-		}
-		}
+			write(fd, fbuf, sizeof(fbuf));
+			fclose(image);
+		]
+
 	}
 	return 0;
 }
-
