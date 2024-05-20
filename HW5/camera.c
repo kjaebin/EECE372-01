@@ -42,7 +42,7 @@ int main()
 
 		read(fd, buf, sizeof(buf));
 		char first = buf[0];
-		if ((first == 'c')||(first == 'C'))[
+		if ((first == 'c')||(first == 'C')){
 			system("libcamera-still --width 640 --height 480 -o 20220709_image.bmp");
 			FILE* image = fopen("20220709_image.bmp", "rb");
 			//printf("cheeze/r/n");
