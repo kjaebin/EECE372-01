@@ -46,7 +46,7 @@ int main()
 			system("libcamera-still --width 640 --height 480 -o 20220709_image.bmp");
 			FILE* image = fopen("20220709_image.bmp", "rb");
 			//printf("cheeze/r/n");
-			whlie(fread(fbuf, sizeof(char), sizeof(buf), image) == sizeof(fbuf)) {
+			while(fread(fbuf, sizeof(char), sizeof(buf), image) == sizeof(fbuf)) {
 				if (feof(image) == 1) {
 					break;
 				}
