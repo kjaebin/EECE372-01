@@ -16,7 +16,7 @@ int main()
 	char fbuf[1024];
 	char buf[256];
 
-	fd = open("/dev/serial0", O_RDWR|O_NOCTTY);
+	fd = open("/dev/ttyAMA0", O_RDWR|O_NOCTTY);
 	if(fd<0) {
 		fprintf(stderr, "failed to open port: %s.\r\n", strerror(errno));
 		printf("Make sure you are executing in sudo.\r\n");
@@ -39,9 +39,21 @@ int main()
 	tcsetattr(fd, TCSANOW, &newtio);
 
 	while(1) {
-
-		// Insert your code
-
+		int cnt = read(fd, buf, 256);
+		if (cnt > 0){
+		buf[cnt] = '\0';
+		printf("Received: %s\r\n",buf);
+		if (strcmp(buf, "c") == 0 || strcmp(buf, "C") == 0 ) {
+			system("raspistill -w 280 -h 280 -t 1 -o test.bmp");
+			FILE* file = fopen("test.bmp", "rb");
+			while(!feof(file)){
+			int cntbp = fread(fbuf,1 ,1024, file);
+			write(fd, fbuf, cntbp);
+			}
+			fclose(file);
+		}
+		}
 	}
 	return 0;
 }
+
