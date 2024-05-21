@@ -21,7 +21,7 @@ int main()
     struct termios newtio;
     char buf[256];
     char fbuf[1024];
-    char nameofcheezee[] = "captured_image.jpg";
+    char image_filename[] = "captured_image.jpg";
 
     fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
     if (fd < 0) {
@@ -47,8 +47,8 @@ int main()
         if (n > 0) {
             buf[n] = '\0';
             if (buf[0] == 'c' || buf[0] == 'C') {
-                cheeze(nameofcheezee);
-                FILE* fp = fopen(nameofcheezee, "rb");
+                cheeze(image_filename);
+                FILE* fp = fopen(image_filename, "rb");
                 if (fp) {
                     fseek(fp, 0, SEEK_END);
                     long filesize = ftell(fp);
@@ -58,7 +58,6 @@ int main()
                         if (filesize < bytes_to_read) {
                             bytes_to_read = filesize;
                         }
-                        filesize -= bytes_read;
                     }
                     fclose(fp);
                 }
