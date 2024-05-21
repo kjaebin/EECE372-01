@@ -6,8 +6,6 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <wiringPi.h>
-#include <linux/videodev2.h>
 
 #define BAUDRATE B1000000
 
@@ -22,6 +20,7 @@ int main()
     int fd;
     struct termios newtio;
     char buf[256];
+    char fbuf[1024];
     char image_filename[] = "captured_image.jpg";
 
     fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
@@ -42,7 +41,7 @@ int main()
 
     tcflush(fd, TCIFLUSH);
     tcsetattr(fd, TCSANOW, &newtio);
-
+    
     while (1) {
         int n = read(fd, buf, sizeof(buf));
         if (n > 0) {
@@ -54,12 +53,27 @@ int main()
                     fseek(fp, 0, SEEK_END);
                     long filesize = ftell(fp);
                     fseek(fp, 0, SEEK_SET);
-                    fread(buf, 1, filesize, fp);
-                    write(fd, buf, filesize);
+                    while (filesize > 0) {
+                        size_t bytes_to_read = sizeof(fbuf);
+                        if (filesize < bytes_to_read) {
+                            bytes_to_read = filesize;
+                        }
+                        size_t bytes_read = fread(fbuf, 1, bytes_to_read, fp);
+                        if (bytes_read <= 0) {
+                            fprintf(stderr, "Error reading from file: %s.\r\n", strerror(errno));
+                            break;
+                        }
+                        size_t bytes_written = write(fd, fbuf, bytes_read);
+                        if (bytes_written <= 0) {
+                            fprintf(stderr, "Error writing to serial port: %s.\r\n", strerror(errno));
+                            break;
+                        }
+                        filesize -= bytes_read;
+                    }
                     fclose(fp);
                 }
                 else {
-                    fprintf(stderr, "failed to open image file: %s.\r\n", strerror(errno));
+                    fprintf(stderr, "Failed to open image file: %s.\r\n", strerror(errno));
                 }
             }
         }
