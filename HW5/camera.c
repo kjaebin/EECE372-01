@@ -9,7 +9,7 @@
 
 #define BAUDRATE B1000000
 
-void capture_image(const char* filename) {
+void cheeze(const char* filename) {
     char command[256];
     snprintf(command, sizeof(command), "libcamera-still -o %s", filename);
     system(command);
@@ -47,7 +47,7 @@ int main()
         if (n > 0) {
             buf[n] = '\0';
             if (buf[0] == 'c' || buf[0] == 'C') {
-                capture_image(image_filename);
+                cheeze(image_filename);
                 FILE* fp = fopen(image_filename, "rb");
                 if (fp) {
                     fseek(fp, 0, SEEK_END);
