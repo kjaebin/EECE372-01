@@ -6,60 +6,64 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <wiringPi.h>
+#include <linux/videodev2.h>
 
 #define BAUDRATE B1000000
 
+void capture_image(const char* filename) {
+    char command[256];
+    snprintf(command, sizeof(command), "libcamera-still -o %s", filename);
+    system(command);
+}
+
 int main()
 {
-	int fd;
-	struct termios newtio;
-	char fbuf[1024];
-	char buf[256];
-	
-	fd = open("/dev/ttyAMA0", O_RDWR|O_NOCTTY);
-	if(fd<0) {
-		fprintf(stderr, "failed to open port: %s.\r\n", strerror(errno));
-		printf("Make sure you are executing in sudo.\r\n");
-	}
-	usleep(250000);
+    int fd;
+    struct termios newtio;
+    char buf[256];
+    char image_filename[] = "captured_image.jpg";
 
-	memset(&newtio, 0, sizeof(newtio));
-	newtio.c_cflag = BAUDRATE|CS8|CLOCAL|CREAD;
-	newtio.c_iflag = ICRNL;
-	newtio.c_oflag = 0;
-	newtio.c_lflag = 0;
-	newtio.c_cc[VTIME] = 0;
-	newtio.c_cc[VMIN] = 1;
-	
-//	speed_t baudRate = B1000000;
-//	cfsetispeed(&newtio, baudRate);
-//	cfsetospeed(&newtio, baudRate);
+    fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
+    if (fd < 0) {
+        fprintf(stderr, "failed to open port: %s.\r\n", strerror(errno));
+        printf("Make sure you are executing in sudo.\r\n");
+        return -1;
+    }
+    usleep(250000);
 
-	tcflush(fd, TCIFLUSH);
-	tcsetattr(fd, TCSANOW, &newtio);
-	
-	while(1) {
-		printf("Start!\r\n");
-		int input = read(fd, buf, sizeof(buf));
-		
-		if (input > 0) {
-			if (buf[0] == 'c' || buf[0] == 'C') {
-			system("raspistill -w 640 -h 480 -t 10 -o output.bmp");
-				char filename[20];
-				sprintf(filename, "output.bmp");
-					FILE* imageFile = fopen(filename, "rb");
-					if (imageFile) {
-						while (!feof(imageFile)) { 
-							int size = 1;
-							int Read = fread(fbuf, size, sizeof(fbuf), imageFile);
-							int Sent = write(fd, fbuf, Read);
-						}
-						printf("Success!\r\n");
-						fclose(imageFile);
-						break;
-					}			
-			}
-		}
-	}
-	return 0;
+    memset(&newtio, 0, sizeof(newtio));
+    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+    newtio.c_iflag = ICRNL;
+    newtio.c_oflag = 0;
+    newtio.c_lflag = 0;
+    newtio.c_cc[VTIME] = 0;
+    newtio.c_cc[VMIN] = 1;
+
+    tcflush(fd, TCIFLUSH);
+    tcsetattr(fd, TCSANOW, &newtio);
+
+    while (1) {
+        int n = read(fd, buf, sizeof(buf));
+        if (n > 0) {
+            buf[n] = '\0';
+            if (buf[0] == 'c' || buf[0] == 'C') {
+                capture_image(image_filename);
+                FILE* fp = fopen(image_filename, "rb");
+                if (fp) {
+                    fseek(fp, 0, SEEK_END);
+                    long filesize = ftell(fp);
+                    fseek(fp, 0, SEEK_SET);
+                    fread(buf, 1, filesize, fp);
+                    write(fd, buf, filesize);
+                    fclose(fp);
+                }
+                else {
+                    fprintf(stderr, "failed to open image file: %s.\r\n", strerror(errno));
+                }
+            }
+        }
+    }
+    close(fd);
+    return 0;
 }
