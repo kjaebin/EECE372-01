@@ -19,15 +19,14 @@ int main()
 {
     int fd;
     struct termios newtio;
-    char buf[256];
     char fbuf[1024];
-    char image_filename[] = "captured_image.jpg";
+    char buf[256];
+    char nameofcheezeee[] = "nameofcheeze.jpg";
 
     fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
     if (fd < 0) {
         fprintf(stderr, "failed to open port: %s.\r\n", strerror(errno));
         printf("Make sure you are executing in sudo.\r\n");
-        return -1;
     }
     usleep(250000);
 
@@ -39,16 +38,20 @@ int main()
     newtio.c_cc[VTIME] = 0;
     newtio.c_cc[VMIN] = 1;
 
+    // speed_t baudRate = B1000000;
+    // cfsetispeed(&newtio, baudRate);
+    // cfsetospeed(&newtio, baudRate);
+
     tcflush(fd, TCIFLUSH);
     tcsetattr(fd, TCSANOW, &newtio);
-    
+
     while (1) {
         int n = read(fd, buf, sizeof(buf));
         if (n > 0) {
             buf[n] = '\0';
             if (buf[0] == 'c' || buf[0] == 'C') {
-                cheeze(image_filename);
-                FILE* fp = fopen(image_filename, "rb");
+                cheeze(nameofcheezeee);
+                FILE* fp = fopen(nameofcheezeee, "rb");
                 if (fp) {
                     fseek(fp, 0, SEEK_END);
                     long filesize = ftell(fp);
@@ -58,6 +61,9 @@ int main()
                         if (filesize < bytes_to_read) {
                             bytes_to_read = filesize;
                         }
+                        size_t bytes_read = fread(fbuf, 1, bytes_to_read, fp);
+                        write(fd, fbuf, bytes_read);
+                        filesize -= bytes_read;
                     }
                     fclose(fp);
                 }
