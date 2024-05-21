@@ -21,7 +21,7 @@ int main()
     struct termios newtio;
     char buf[256];
     char fbuf[1024];
-    char image_filename[] = "captured_image.jpg";
+    char nameofcheezee[] = "captured_image.jpg";
 
     fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
     if (fd < 0) {
@@ -47,8 +47,8 @@ int main()
         if (n > 0) {
             buf[n] = '\0';
             if (buf[0] == 'c' || buf[0] == 'C') {
-                cheeze(image_filename);
-                FILE* fp = fopen(image_filename, "rb");
+                cheeze(nameofcheezee);
+                FILE* fp = fopen(nameofcheezee, "rb");
                 if (fp) {
                     fseek(fp, 0, SEEK_END);
                     long filesize = ftell(fp);
@@ -58,22 +58,9 @@ int main()
                         if (filesize < bytes_to_read) {
                             bytes_to_read = filesize;
                         }
-                        size_t bytes_read = fread(fbuf, 1, bytes_to_read, fp);
-                        if (bytes_read <= 0) {
-                            fprintf(stderr, "Error reading from file: %s.\r\n", strerror(errno));
-                            break;
-                        }
-                        size_t bytes_written = write(fd, fbuf, bytes_read);
-                        if (bytes_written <= 0) {
-                            fprintf(stderr, "Error writing to serial port: %s.\r\n", strerror(errno));
-                            break;
-                        }
                         filesize -= bytes_read;
                     }
                     fclose(fp);
-                }
-                else {
-                    fprintf(stderr, "Failed to open image file: %s.\r\n", strerror(errno));
                 }
             }
         }
