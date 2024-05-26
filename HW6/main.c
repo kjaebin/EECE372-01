@@ -45,9 +45,21 @@ void func() {
     ///////// Matrix multiplication with NEON start/////////
     p0 = clock();
 
-    /*
-        put your code here
-    */
+    // Initialize answer arrays to zero
+    memset(ans_neon, 0, sizeof(int16_t) * 8 * 8);
+    memset(ans_for, 0, sizeof(int16_t) * 8 * 8);
+
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j += 4) {
+            int16x4_t c = vdup_n_s16(0);  // Initialize the NEON vector to zero
+            for (int k = 0; k < 8; k++) {
+                int16x4_t a = vdup_n_s16(arr1[i * 8 + k]);  // Broadcast arr1[i][k] to all elements
+                int16x4_t b = vld1_s16(&arr2[k * 8 + j]);  // Load arr2[k][j:j+3] into NEON register
+                c = vmlal_s16(c, a, b);  // Multiply and accumulate
+            }
+            vst1_s16(&ans_neon[i * 8 + j], c);  // Store the result
+        }
+    }
 
     p1 = clock();
     ///////// Matrix multiplication with NEON end///////////
