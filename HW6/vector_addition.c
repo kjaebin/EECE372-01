@@ -88,10 +88,9 @@ void vec_chunking(double* x, double* y, double* z) {
     {
         int thread_id = omp_get_thread_num();
         int num_threads = omp_get_num_threads();
-        int chunk_size = (ARRAY_SIZE + num_threads - 1) / num_threads; // 올림을 통해 덩어리 크기 결정
-
+        int chunk_size = ARRAY_SIZE / num_threads;
         int start = thread_id * chunk_size;
-        int end = (start + chunk_size > ARRAY_SIZE) ? ARRAY_SIZE : start + chunk_size;
+        int end = (thread_id == num_threads - 1) ? ARRAY_SIZE : start + chunk_size;
 
         for (int i = start; i < end; i++) {
             z[i] = x[i] + y[i];
