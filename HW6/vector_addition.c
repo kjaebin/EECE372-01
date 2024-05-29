@@ -77,7 +77,7 @@ void vec_slicing(double *x, double *y, double *z) {
         int thread_id = omp_get_thread_num();
         int num_threads = omp_get_num_threads();
 
-        for (int i = thread_ID; i < ARRAY_SIZE; i = i + num_thread) //each thread only do vector addition when it's element's mod of num_thread is same to it's thread ID
+        for (int i = thread_id; i < ARRAY_SIZE; i = i + num_threads) //each thread only do vector addition when it's element's mod of num_thread is same to it's thread ID
             z[i] = x[i] + y[i];
     }
 }
