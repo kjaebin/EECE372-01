@@ -41,7 +41,6 @@ void func() {
 
     np1 = clock();
     ///////////////////////  Matrix multiplication with for loop end  /////////////////
-
     ///////// Matrix multiplication with NEON start/////////
     p0 = clock();
 
@@ -67,9 +66,14 @@ void func() {
             res = vmlaq_s16(res, row1, col8);
 
             int16_t sum = 0;
-            for (int k = 0; k < 8; k++) {
-                sum += vgetq_lane_s16(res, k);
-            }
+            sum += vgetq_lane_s16(res, 0);
+            sum += vgetq_lane_s16(res, 1);
+            sum += vgetq_lane_s16(res, 2);
+            sum += vgetq_lane_s16(res, 3);
+            sum += vgetq_lane_s16(res, 4);
+            sum += vgetq_lane_s16(res, 5);
+            sum += vgetq_lane_s16(res, 6);
+            sum += vgetq_lane_s16(res, 7);
 
             ans_neon[i * 8 + j] = sum;
         }
