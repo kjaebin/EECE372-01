@@ -45,20 +45,19 @@ void func() {
     ///////// Matrix multiplication with NEON start/////////
     p0 = clock();
 
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            int16x8_t c = vdupq_n_s16(0);
+for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+        int16x8_t c = vdupq_n_s16(0);
 
-            for (int k = 0; k < 8; k++) {
-                int16x8_t a = vld1q_s16(&arr1[i * 8]);
-                int16x8_t b = vld1q_s16(&arr2[k * 8]);
-                int16x8_t temp = vmulq_n_s16(b, arr1[i * 8 + k]);
-                c = vaddq_s16(c, temp);
-            }
-
-            vst1q_s16(&ans_neon[i * 8], c);
+        for (int k = 0; k < 8; k++) {
+            int16x8_t a = vdupq_n_s16(arr1[i * 8 + k]);
+            int16x8_t b = vld1q_s16(&arr2[k * 8]);
+            c = vmlaq_s16(c, b, a);
         }
+
+        vst1q_s16(&ans_neon[i * 8], c);
     }
+}
 
     p1 = clock();
     ///////// Matrix multiplication with NEON end///////////
