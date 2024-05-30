@@ -45,19 +45,19 @@ void func() {
     ///////// Matrix multiplication with NEON start/////////
     p0 = clock();
 
-    // Initialize answer arrays to zero
-    memset(ans_neon, 0, sizeof(int16_t) * 8 * 8);
-    memset(ans_for, 0, sizeof(int16_t) * 8 * 8);
-
     for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j += 4) {
-            int16x4_t c = vdup_n_s16(0);  // Initialize the NEON vector to zero
+        for (int j = 0; j < 8; j++) {
+            int16x8_t a = vld1q_s16(&arr1[i * 8]);
+            int16x8_t b = vld1q_s16(&arr2[j * 8]);
+            int16x8_t c = vld1q_s16(&ans_neon[i * 8]);
+
             for (int k = 0; k < 8; k++) {
-                int16x4_t a = vdup_n_s16(arr1[i * 8 + k]);  // Broadcast arr1[i][k] to all elements
-                int16x4_t b = vld1_s16(&arr2[k * 8 + j]);  // Load arr2[k][j:j+3] into NEON register
-                c = vmlal_s16(c, a, b);  // Multiply and accumulate
+                int16x8_t b = vld1q_s16(&arr2[k * 8]);
+                int16x8_t temp = vmulq_n_s16(b, arr1[i * 8 + k]);
+                c = vaddq_s16(c, temp);
             }
-            vst1_s16(&ans_neon[i * 8 + j], c);  // Store the result
+
+            vst1q_s16(&ans_neon[i * 8], c);
         }
     }
 
