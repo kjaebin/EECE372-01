@@ -70,10 +70,8 @@ void vec_simple(double* x, double* y, double* z) {
 }
 
 void vec_slicing(double* x, double* y, double* z) {
-    // 스레드 수를 6으로 설정
     omp_set_num_threads(6);
 
-    // 병렬 영역 시작
     #pragma omp parallel
     {
         // 현재 스레드 ID와 총 스레드 수를 얻음.
@@ -88,10 +86,8 @@ void vec_slicing(double* x, double* y, double* z) {
 }
 
 void vec_chunking(double* x, double* y, double* z) {
-    // 스레드 수를 6으로 설정
     omp_set_num_threads(6);
 
-    // 병렬 영역 시작
     #pragma omp parallel
     {
         // 현재 스레드 ID와 총 스레드 수를 얻음
