@@ -208,28 +208,28 @@ void func() {
 	p1 = clock();	
 
     ///////// Matrix multiplication with NEON end///////////
-
+ 
 	///////// Matrix multiplication with NEON start/////////
-	p2 = clock();
+	p2 = clock(); // Operation starts after this line
 
 	for (int i = 0; i < 8; i++) {
+		int16x8_t row = vld1q_s16(&arr1[i * 8]);
 		for (int j = 0; j < 8; j++) {
-			int16x8_t sum_vec = vdupq_n_s16(0);  // Initialize sum vector to zero
-			for (int k = 0; k < 8; k++) {
-				int16x8_t a_vec = vdupq_n_s16(arr1[i * 8 + k]);
-				int16x8_t b_vec = vld1q_s16(&arr2[k * 8]);
-				int16x8_t product = vmulq_s16(a_vec, b_vec);
-				sum_vec = vaddq_s16(sum_vec, product);
-			}
-			int16_t sum = 0;
-			for (int l = 0; l < 8; l++) {
-				sum += vgetq_lane_s16(sum_vec, l);
-			}
-			ans_neon[i * 8 + j] = sum;
+			int16x8_t col = { arr2[j], arr2[8 + j], arr2[16 + j], arr2[24 + j], arr2[32 + j], arr2[40 + j], arr2[48 + j], arr2[56 + j] };
+			int16x8_t prod = vmulq_s16(row, col);
+
+			// Sum the elements of prod vector
+			int16x4_t sum_high = vget_high_s16(prod);
+			int16x4_t sum_low = vget_low_s16(prod);
+			int16x4_t sum_pairs = vpadd_s16(sum_low, sum_high);
+			int16x4_t sum_final = vpadd_s16(sum_pairs, sum_pairs);
+
+			ans_neon[i * 8 + j] = vget_lane_s16(sum_final, 0);
 		}
 	}
 
 	p3 = clock();
+
 	///////// Matrix multiplication with NEON end///////////
 
     int check = 0;
