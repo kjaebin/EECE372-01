@@ -31,20 +31,13 @@ void func() {
     ///////////////////////  Matrix multiplication with for loop start /////////////////
     np0 = clock();
 
-for (int i = 0; i < 8; i++) {
-    for (int j = 0; j < 8; j++) {
-        int16x8_t c = vdupq_n_s16(0);
-
-        for (int k = 0; k < 8; k++) {
-            int16x8_t a = vld1q_dup_s16(&arr1[i * 8 + k]); // 각 요소를 벡터로 복사
-            int16x8_t b = vld1q_s16(&arr2[k * 8]); // 열 벡터 로드
-            c = vmlaq_s16(c, a, b); // 벡터 곱셈 및 누적
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            for (int k = 0; k < 8; k++) {
+                ans_for[8 * i + j] += arr1[8 * i + k] * arr2[8 * k + j];
+            }
         }
-
-        vst1q_s16(&ans_neon[i * 8 + j], c); // 결과 저장
     }
-}
-
 
     np1 = clock();
     ///////////////////////  Matrix multiplication with for loop end  /////////////////
@@ -52,19 +45,21 @@ for (int i = 0; i < 8; i++) {
     ///////// Matrix multiplication with NEON start/////////
     p0 = clock();
 
-for (int i = 0; i < 8; i++) {
-    for (int j = 0; j < 8; j++) {
-        int16x8_t c = vdupq_n_s16(0);
+    // Initialize answer arrays to zero
+    memset(ans_neon, 0, sizeof(int16_t) * 8 * 8);
+    memset(ans_for, 0, sizeof(int16_t) * 8 * 8);
 
-        for (int k = 0; k < 8; k++) {
-            int16x8_t a = vld1q_s16(&arr1[i * 8 + k]);
-            int16x8_t b = vdupq_n_s16(arr2[k * 8 + j]);
-            c = vmlaq_s16(c, a, b);
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j += 4) {
+            int16x4_t c = vdup_n_s16(0);  // Initialize the NEON vector to zero
+            for (int k = 0; k < 8; k++) {
+                int16x4_t a = vdup_n_s16(arr1[i * 8 + k]);  // Broadcast arr1[i][k] to all elements
+                int16x4_t b = vld1_s16(&arr2[k * 8 + j]);  // Load arr2[k][j:j+3] into NEON register
+                c = vmlal_s16(c, a, b);  // Multiply and accumulate
+            }
+            vst1_s16(&ans_neon[i * 8 + j], c);  // Store the result
         }
-
-        vst1q_s16(&ans_neon[i * 8 + j], c);
     }
-}
 
     p1 = clock();
     ///////// Matrix multiplication with NEON end///////////
