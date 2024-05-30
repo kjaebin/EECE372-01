@@ -43,7 +43,7 @@ void func() {
     ///////////////////////  Matrix multiplication with for loop end  /////////////////
 
     ///////// Matrix multiplication with NEON start/////////
-	p2 = clock();
+	p0 = clock();
 
 	for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
@@ -62,7 +62,7 @@ void func() {
         }
     }
 
-	p3 = clock();
+	p1 = clock();
     ///////// Matrix multiplication with NEON end///////////
 
     int check = 0;
