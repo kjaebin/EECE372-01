@@ -47,7 +47,7 @@ void func() {
 
 for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
-        int16x8_t c = vdupq_n_s16(0); // 벡터 초기화
+        int16x8_t c = vdupq_n_s16(0);
 
         for (int k = 0; k < 8; k++) {
             int16x8_t a = vld1q_s16(&arr1[i * 8]); // 행 벡터 로드
@@ -55,7 +55,8 @@ for (int i = 0; i < 8; i++) {
             c = vmlaq_s16(c, a, b); // 벡터 곱셈 및 누적
         }
 
-        vst1q_s16(&ans_neon[i * 8 + j], c); // 결과 저장
+        // ans_neon의 인덱스가 올바르게 계산되도록 수정
+        vst1q_s16(&ans_neon[i * 8], c); // 결과 저장
     }
 }
 
