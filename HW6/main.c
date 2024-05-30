@@ -45,24 +45,19 @@ void func() {
     ///////// Matrix multiplication with NEON start/////////
     p0 = clock();
 
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            int16x8_t c = vdupq_n_s16(0);
-            for (int k = 0; k < 8; k += 4) {
-                int16x4_t a = vld1_s16(&arr1[i * 8 + k]);
-                int16x4_t b1 = vld1_s16(&arr2[k * 8 + j]);
-                int16x4_t b2 = vld1_s16(&arr2[(k + 1) * 8 + j]);
-                int16x4_t b3 = vld1_s16(&arr2[(k + 2) * 8 + j]);
-                int16x4_t b4 = vld1_s16(&arr2[(k + 3) * 8 + j]);
+for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+        int16x8_t c = vdupq_n_s16(0);
 
-                c = vmlaq_lane_s16(c, b1, a, 0);
-                c = vmlaq_lane_s16(c, b2, a, 1);
-                c = vmlaq_lane_s16(c, b3, a, 2);
-                c = vmlaq_lane_s16(c, b4, a, 3);
-            }
-            vst1q_s16(&ans_neon[i * 8 + j], c);
+        for (int k = 0; k < 8; k++) {
+            int16x8_t a = vld1q_s16(&arr1[i * 8 + k]);
+            int16x8_t b = vdupq_n_s16(arr2[k * 8 + j]);
+            c = vmlaq_s16(c, a, b);
         }
+
+        vst1q_s16(&ans_neon[i * 8 + j], c);
     }
+}
 
     p1 = clock();
     ///////// Matrix multiplication with NEON end///////////
