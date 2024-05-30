@@ -46,17 +46,16 @@ void func() {
     p0 = clock();
 
     for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
+        for (int j = 0; j < 8; j += 8) {
             int16x8_t c = vdupq_n_s16(0);
 
             for (int k = 0; k < 8; k++) {
-                int16x8_t a = vld1q_s16(&arr1[i * 8]);
-                int16x8_t b = vld1q_s16(&arr2[k * 8]);
-                int16x8_t temp = vmulq_n_s16(b, arr1[i * 8 + k]);
-                c = vaddq_s16(c, temp);
+                int16x8_t a = vld1q_s16(&arr1[i * 8 + k]);
+                int16x8_t b = vld1q_s16(&arr2[k * 8 + j]);
+                c = vmlaq_s16(c, a, b);
             }
 
-            vst1q_s16(&ans_neon[i * 8], c);
+            vst1q_s16(&ans_neon[i * 8 + j], c);
         }
     }
 
