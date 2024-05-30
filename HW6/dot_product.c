@@ -62,23 +62,27 @@ double dotp(double *x, double *y) {
     return global_sum;
 }
 
-double dotp_omp(double *x, double *y) {
+double dotp_omp(double* x, double* y) {
     omp_set_num_threads(6);
 
     double global_sum = 0.0;
 
 #pragma omp parallel
     {
+        int num_thread = omp_get_num_threads();
+        int thread_ID = omp_get_thread_num();
         double local_sum = 0.0;
 
-#pragma omp for
-        for (int i = 0; i < ARRAY_SIZE; i++) {
+        // 각 쓰레드가 병렬로 작업 수행
+        #pragma omp for
+        for (int i = 0; i < ARRAY_SIZE; i++)
             local_sum += x[i] * y[i];
-        }
 
-#pragma omp atomic
-        global_sum += local_sum;
+        // 데이터 레이스 방지를 위해 critical 사용
+        #pragma omp critical
+            global_sum += local_sum;
     }
 
     return global_sum;
 }
+
