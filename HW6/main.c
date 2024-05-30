@@ -31,13 +31,20 @@ void func() {
     ///////////////////////  Matrix multiplication with for loop start /////////////////
     np0 = clock();
 
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            for (int k = 0; k < 8; k++) {
-                ans_for[8 * i + j] += arr1[8 * i + k] * arr2[8 * k + j];
-            }
+for (int i = 0; i < 8; i++) {
+    for (int j = 0; j < 8; j++) {
+        int16x8_t c = vdupq_n_s16(0);
+
+        for (int k = 0; k < 8; k++) {
+            int16x8_t a = vld1q_dup_s16(&arr1[i * 8 + k]); // 각 요소를 벡터로 복사
+            int16x8_t b = vld1q_s16(&arr2[k * 8]); // 열 벡터 로드
+            c = vmlaq_s16(c, a, b); // 벡터 곱셈 및 누적
         }
+
+        vst1q_s16(&ans_neon[i * 8 + j], c); // 결과 저장
     }
+}
+
 
     np1 = clock();
     ///////////////////////  Matrix multiplication with for loop end  /////////////////
