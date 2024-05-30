@@ -71,14 +71,13 @@ void vec_simple(double *x, double *y, double *z) {
 
 void vec_slicing(double *x, double *y, double *z) {
     omp_set_num_threads(6);
-    // Write Your Code
 #pragma omp parallel
     {
         int thread_id = omp_get_thread_num();
         int num_threads = omp_get_num_threads();
-
-        for (int i = thread_id; i < ARRAY_SIZE; i = i + num_threads) //each thread only do vector addition when it's element's mod of num_thread is same to it's thread ID
+        for (int i = thread_id; i < ARRAY_SIZE; i += num_threads) {
             z[i] = x[i] + y[i];
+        }
     }
 }
 
