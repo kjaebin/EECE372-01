@@ -6,16 +6,16 @@
 
 #define ARRAY_SIZE 100000
 
-double dotp(double *x, double *y);
-double dotp_omp(double *x, double *y);
+double dotp(double* x, double* y);
+double dotp_omp(double* x, double* y);
 
 int main() {
     double error = 0;
     double global_sum = 0;
     double global_sum_ref = 0;
-    double *x = malloc(sizeof(double) * ARRAY_SIZE);
-    double *y = malloc(sizeof(double) * ARRAY_SIZE);
-    double *z = malloc(sizeof(double) * ARRAY_SIZE);
+    double* x = malloc(sizeof(double) * ARRAY_SIZE);
+    double* y = malloc(sizeof(double) * ARRAY_SIZE);
+    double* z = malloc(sizeof(double) * ARRAY_SIZE);
 
     clock_t start, end;
 
@@ -52,7 +52,7 @@ int main() {
     return 0;
 }
 
-double dotp(double *x, double *y) {
+double dotp(double* x, double* y) {
     double global_sum = 0.0;
 
     for (int i = 0; i < ARRAY_SIZE; i++) {
@@ -64,25 +64,28 @@ double dotp(double *x, double *y) {
 
 double dotp_omp(double* x, double* y) {
     omp_set_num_threads(6);
-
+    
     double global_sum = 0.0;
 
 #pragma omp parallel
     {
         int num_thread = omp_get_num_threads();
         int thread_ID = omp_get_thread_num();
+
+        // 각 스레드에서 사용할 로컬 합 변수
         double local_sum = 0.0;
 
-        // 각 쓰레드가 병렬로 작업 수행
+        // 병렬 for문 시작
         #pragma omp for
         for (int i = 0; i < ARRAY_SIZE; i++)
             local_sum += x[i] * y[i];
 
-        // 데이터 레이스 방지를 위해 critical 사용
+        // 데이터 레이스 방지를 위해 critical 섹션 사용
         #pragma omp critical
             global_sum += local_sum;
     }
 
+    // 최종 결과 반환
     return global_sum;
 }
 
