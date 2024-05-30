@@ -70,10 +70,9 @@ double dotp_omp(double *x, double *y) {
 #pragma omp parallel
     {
         double local_sum = 0.0;
-        int thread_id = omp_get_thread_num();
-        int num_threads = omp_get_num_threads();
 
-        for (int i = thread_id; i < ARRAY_SIZE; i += num_threads) {
+#pragma omp for
+        for (int i = 0; i < ARRAY_SIZE; i++) {
             local_sum += x[i] * y[i];
         }
 
@@ -85,3 +84,4 @@ double dotp_omp(double *x, double *y) {
 
     return global_sum;
 }
+
