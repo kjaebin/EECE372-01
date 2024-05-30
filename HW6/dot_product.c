@@ -76,12 +76,9 @@ double dotp_omp(double *x, double *y) {
             local_sum += x[i] * y[i];
         }
 
-#pragma omp critical
-        {
-            global_sum += local_sum;
-        }
+#pragma omp atomic
+        global_sum += local_sum;
     }
 
     return global_sum;
 }
-
