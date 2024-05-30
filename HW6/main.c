@@ -213,43 +213,24 @@ void func() {
 	p2 = clock();
 
 	for (int i = 0; i < 8; i++) {
-		int16x8_t row1 = vld1q_s16(&arr1[i * 8]);
 		for (int j = 0; j < 8; j++) {
-			int16x8_t col1 = vdupq_n_s16(arr2[j]);
-			int16x8_t col2 = vdupq_n_s16(arr2[8 + j]);
-			int16x8_t col3 = vdupq_n_s16(arr2[16 + j]);
-			int16x8_t col4 = vdupq_n_s16(arr2[24 + j]);
-			int16x8_t col5 = vdupq_n_s16(arr2[32 + j]);
-			int16x8_t col6 = vdupq_n_s16(arr2[40 + j]);
-			int16x8_t col7 = vdupq_n_s16(arr2[48 + j]);
-			int16x8_t col8 = vdupq_n_s16(arr2[56 + j]);
-
-			int16x8_t res = vmulq_s16(row1, col1);
-			res = vmlaq_s16(res, row1, col2);
-			res = vmlaq_s16(res, row1, col3);
-			res = vmlaq_s16(res, row1, col4);
-			res = vmlaq_s16(res, row1, col5);
-			res = vmlaq_s16(res, row1, col6);
-			res = vmlaq_s16(res, row1, col7);
-			res = vmlaq_s16(res, row1, col8);
-
+			int16x8_t sum_vec = vdupq_n_s16(0);  // Initialize sum vector to zero
+			for (int k = 0; k < 8; k++) {
+				int16x8_t a_vec = vdupq_n_s16(arr1[i * 8 + k]);
+				int16x8_t b_vec = vld1q_s16(&arr2[k * 8 + j]);
+				int16x8_t product = vmulq_s16(a_vec, b_vec);
+				sum_vec = vaddq_s16(sum_vec, product);
+			}
 			int16_t sum = 0;
-			sum += vgetq_lane_s16(res, 0);
-			sum += vgetq_lane_s16(res, 1);
-			sum += vgetq_lane_s16(res, 2);
-			sum += vgetq_lane_s16(res, 3);
-			sum += vgetq_lane_s16(res, 4);
-			sum += vgetq_lane_s16(res, 5);
-			sum += vgetq_lane_s16(res, 6);
-			sum += vgetq_lane_s16(res, 7);
-
+			for (int l = 0; l < 8; l++) {
+				sum += vgetq_lane_s16(sum_vec, l);
+			}
 			ans_neon[i * 8 + j] = sum;
 		}
 	}
 
 	p3 = clock();
 	///////// Matrix multiplication with NEON end///////////
-
 
     int check = 0;
     for (int i = 0; i < 8 * 8; i++) {
