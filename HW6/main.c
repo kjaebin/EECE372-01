@@ -15,7 +15,7 @@
 #include "arm_perf.h"
 
 void func() {
-    clock_t np0, np1, p0, p1;
+    clock_t np0, np1, p0, p1, p2, p3;
 
     int16_t *arr1 = malloc(sizeof(int16_t) * 8 * 8);
     int16_t *arr2 = malloc(sizeof(int16_t) * 8 * 8);
@@ -57,6 +57,7 @@ void func() {
 	int16x8_t temp;
 
 	p0 = clock(); // Operation starts after this line
+
 	//not using for loop
 	temp = vmulq_s16(vec_col[0], vdupq_n_s16(vgetq_lane_s16(vec_row[0], 0)));
 	vec_ans[0] = vaddq_s16(vec_ans[0], temp);
@@ -193,9 +194,8 @@ void func() {
 	vec_ans[7] = vaddq_s16(vec_ans[7], temp);
 	temp = vmulq_s16(vec_col[7], vdupq_n_s16(vgetq_lane_s16(vec_row[7], 7)));
 	vec_ans[7] = vaddq_s16(vec_ans[7], temp);
-	
-
    
+
 	vst1q_s16(ans_neon, vec_ans[0]);
 	vst1q_s16(ans_neon + 8, vec_ans[1]);
 	vst1q_s16(ans_neon + 16, vec_ans[2]);
@@ -208,6 +208,26 @@ void func() {
 	p1 = clock();	
 
     ///////// Matrix multiplication with NEON end///////////
+
+	///////// Matrix multiplication with NEON start/////////
+	p2 = clock();
+
+	for (int i = 0; i < 8; i++) {
+		for (int j = 0; j < 8; j++) {
+			int16x8_t c = vdupq_n_s16(0);
+
+			for (int k = 0; k < 8; k++) {
+				int16x8_t a = vdupq_n_s16(arr1[i * 8 + k]);
+				int16x8_t b = vld1q_s16(&arr2[k * 8]);
+				c = vmlaq_s16(c, b, a);
+			}
+
+			vst1q_s16(&ans_neon[i * 8], c);
+		}
+	}
+
+	p3 = clock();
+	///////// Matrix multiplication with NEON end///////////
 
 
     int check = 0;
@@ -224,7 +244,8 @@ void func() {
     }
 
     printf("Execution time (for) : %7.3lf[us]\n", ((double)np1 - np0) / ((double)CLOCKS_PER_SEC / 1000000));
-    printf("Execution time (NEON): %7.3lf[us]\n", ((double)p1 - p0) / ((double)CLOCKS_PER_SEC / 1000000));
+    printf("1Execution time (NEON): %7.3lf[us]\n", ((double)p1 - p0) / ((double)CLOCKS_PER_SEC / 1000000));
+	printf("2Execution time (NEON): %7.3lf[us]\n", ((double)p3 - p2) / ((double)CLOCKS_PER_SEC / 1000000));
 
     free(arr1);
     free(arr2);
