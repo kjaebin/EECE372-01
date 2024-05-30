@@ -66,7 +66,12 @@ void func() {
             res = vmlaq_s16(res, row1, col7);
             res = vmlaq_s16(res, row1, col8);
 
-            ans_neon[i * 8 + j] = vaddvq_s16(res);  // horizontal add to get the final scalar result
+            int16_t sum = 0;
+            for (int k = 0; k < 8; k++) {
+                sum += vgetq_lane_s16(res, k);
+            }
+
+            ans_neon[i * 8 + j] = sum;
         }
     }
 
