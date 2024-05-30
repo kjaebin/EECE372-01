@@ -52,12 +52,12 @@ void func() {
             int16x8_t prod = vmulq_s16(row, col);
 
             // Sum the elements of prod vector
-            int16x4_t sum_high = vget_high_s16(prod);
-            int16x4_t sum_low = vget_low_s16(prod);
-            int16x4_t sum_pairs = vpadd_s16(sum_low, sum_high);
-            int16x4_t sum_final = vpadd_s16(sum_pairs, sum_pairs);
+            int16_t sum = 0;
+            for (int k = 0; k < 8; k++) {
+                sum += vgetq_lane_s16(prod, k);
+            }
 
-            ans_neon[i * 8 + j] = vget_lane_s16(sum_final, 0);
+            ans_neon[i * 8 + j] = sum;
         }
     }
 
