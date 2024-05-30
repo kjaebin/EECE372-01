@@ -217,7 +217,7 @@ void func() {
 			int16x8_t sum_vec = vdupq_n_s16(0);  // Initialize sum vector to zero
 			for (int k = 0; k < 8; k++) {
 				int16x8_t a_vec = vdupq_n_s16(arr1[i * 8 + k]);
-				int16x8_t b_vec = vld1q_s16(&arr2[k * 8 + j]);
+				int16x8_t b_vec = vld1q_s16(&arr2[k * 8]);
 				int16x8_t product = vmulq_s16(a_vec, b_vec);
 				sum_vec = vaddq_s16(sum_vec, product);
 			}
