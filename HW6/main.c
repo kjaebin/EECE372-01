@@ -54,9 +54,12 @@ for (int i = 0; i < 8; i++) {
             int16x8_t b = vdupq_n_s16(arr2[k * 8 + j]);
             int16x8_t c = vmulq_s16(a, b);
 
-            // 벡터의 요소를 수동으로 더하기
+            // 벡터의 요소를 배열로 추출하여 수동으로 더하기
+            int16_t temp[8];
+            vst1q_s16(temp, c);
+
             for (int l = 0; l < 8; l++) {
-                sum += vgetq_lane_s16(c, l);
+                sum += temp[l];
             }
         }
 
