@@ -47,18 +47,20 @@ void func() {
 
 for (int i = 0; i < 8; i++) {
     for (int j = 0; j < 8; j++) {
-        int16x8_t c = vdupq_n_s16(0);  // 벡터 초기화
+        int16_t sum = 0;
 
         for (int k = 0; k < 8; k++) {
-            int16x8_t a = vld1q_s16(&arr1[i * 8]);  // 행 벡터 로드
-            int16x8_t b = vdupq_n_s16(arr2[k * 8 + j]);  // 요소를 복사하여 벡터 생성
-            c = vmlaq_n_s16(c, a, arr2[k * 8 + j]);  // 벡터 곱셈 및 누적
+            int16x8_t a = vld1q_s16(&arr1[i * 8]);
+            int16x8_t b = vdupq_n_s16(arr2[k * 8 + j]);
+            int16x8_t c = vmulq_s16(a, b);
+
+            // 벡터의 요소를 수동으로 더하기
+            for (int l = 0; l < 8; l++) {
+                sum += vgetq_lane_s16(c, l);
+            }
         }
 
-        // c의 각 요소를 저장
-        for (int m = 0; m < 8; m++) {
-            ans_neon[i * 8 + j] += vgetq_lane_s16(c, m);
-        }
+        ans_neon[i * 8 + j] = sum;
     }
 }
 
