@@ -45,27 +45,20 @@ void func() {
     ///////// Matrix multiplication with NEON start/////////
     p0 = clock();
 
-for (int i = 0; i < 8; i++) {
-    for (int j = 0; j < 8; j++) {
-        int16_t sum = 0;
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            int16x8_t c = vdupq_n_s16(0);
 
-        for (int k = 0; k < 8; k++) {
-            int16x8_t a = vld1q_s16(&arr1[i * 8]);
-            int16x8_t b = vdupq_n_s16(arr2[k * 8 + j]);
-            int16x8_t c = vmulq_s16(a, b);
-
-            // 벡터의 요소를 배열로 추출하여 수동으로 더하기
-            int16_t temp[8];
-            vst1q_s16(temp, c);
-
-            for (int l = 0; l < 8; l++) {
-                sum += temp[l];
+            for (int k = 0; k < 8; k++) {
+                int16x8_t a = vld1q_s16(&arr1[i * 8]);
+                int16x8_t b = vld1q_s16(&arr2[k * 8]);
+                int16x8_t temp = vmulq_n_s16(b, arr1[i * 8 + k]);
+                c = vaddq_s16(c, temp);
             }
-        }
 
-        ans_neon[i * 8 + j] = sum;
+            vst1q_s16(&ans_neon[i * 8], c);
+        }
     }
-}
 
     p1 = clock();
     ///////// Matrix multiplication with NEON end///////////
@@ -97,3 +90,4 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
