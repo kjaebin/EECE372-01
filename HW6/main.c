@@ -43,26 +43,24 @@ void func() {
     ///////////////////////  Matrix multiplication with for loop end  /////////////////
 
     ///////// Matrix multiplication with NEON start/////////
-	p0 = clock();
+    p0 = clock();
 
-	for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 8; i++) {
+        int16x8_t row = vld1q_s16(&arr1[i * 8]);
         for (int j = 0; j < 8; j++) {
-            int16x8_t sum_vec = vdupq_n_s16(0);  // Initialize sum vector to zero
-            for (int k = 0; k < 8; k++) {
-                int16x8_t a_vec = vdupq_n_s16(arr1[i * 8 + k]);
-                int16x8_t b_vec = vld1q_s16(&arr2[k * 8]);
-                int16x8_t product = vmulq_s16(a_vec, b_vec);
-                sum_vec = vaddq_s16(sum_vec, product);
-            }
-            int16_t sum = 0;
-            for (int l = 0; l < 8; l++) {
-                sum += vgetq_lane_s16(sum_vec, l);
-            }
+            int16x8_t col = { arr2[j], arr2[8 + j], arr2[16 + j], arr2[24 + j], arr2[32 + j], arr2[40 + j], arr2[48 + j], arr2[56 + j] };
+            int16x8_t prod = vmulq_s16(row, col);
+
+            // Sum the elements of prod vector manually
+            int16_t sum = vgetq_lane_s16(prod, 0) + vgetq_lane_s16(prod, 1) + vgetq_lane_s16(prod, 2) +
+                          vgetq_lane_s16(prod, 3) + vgetq_lane_s16(prod, 4) + vgetq_lane_s16(prod, 5) +
+                          vgetq_lane_s16(prod, 6) + vgetq_lane_s16(prod, 7);
+
             ans_neon[i * 8 + j] = sum;
         }
     }
 
-	p1 = clock();
+    p1 = clock();
     ///////// Matrix multiplication with NEON end///////////
 
     int check = 0;
