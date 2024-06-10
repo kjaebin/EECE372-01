@@ -291,6 +291,7 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                         for (int ow = 0; ow < out_W; ow += 4) {
                             int ih = oh * S + kh;
                             int iw = ow * S + kw;
+                            
                             float32x4_t in_value = vld1q_f32(&feature_in[ic * in_H * in_W + ih * in_W + iw]);
                             float32x4_t weight_value = vld1q_f32(&weight[oc * in_C * K * K + ic * K * K + kh * K + kw]);
                             float32x4_t out_value = vld1q_f32(&feature_out[oc * out_H * out_W + oh * out_W + ow]);
