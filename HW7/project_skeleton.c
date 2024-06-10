@@ -7,11 +7,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <wiringPi.h>  // GPIO 제어를 위한 라이브러리
 
 #include "stb_image.h"
 #include "stb_image_resize2.h"
 #include "stb_image_write.h"
+#include <wiringPi.h>
 
 #define CLOCKS_PER_US ((double)CLOCKS_PER_SEC / 1000000)
 
@@ -39,15 +39,6 @@
 #define FC_IN (I2_H * I2_W)
 #define FC_OUT CLASS
 
-#define a 22
-#define b 21
-#define c_ 28
-#define d 25
-#define e 29
-#define f 23
-#define g 24
-#define DP 27
-
 typedef struct _model {
     float conv1_weight[I2_C * I1_C * CONV1_KERNAL * CONV1_KERNAL];
     float conv1_bias[I2_C];
@@ -58,6 +49,8 @@ typedef struct _model {
     float fc_weight[FC_OUT * FC_IN];
     float fc_bias[FC_OUT];
 } model;
+
+int pin_num[] = {29, 28, 23, 22, 21, 27, 26};
 
 void resize_280_to_28(unsigned char *in, unsigned char *out);
 void Gray_scale(unsigned char *feature_in, unsigned char *feature_out);
@@ -71,105 +64,8 @@ void Log_softmax(float *activation);
 int Get_pred(float *activation);
 void Get_CAM(float *activation, float *cam, int pred, float *weight);
 void save_image(float *feature_scaled, float *cam);
-
-void setup_gpio() {
-    if (wiringPiSetup() == -1) {
-        exit(1);
-    }
-    pinMode(a, OUTPUT);
-    pinMode(b, OUTPUT);
-    pinMode(c_, OUTPUT);
-    pinMode(d, OUTPUT);
-    pinMode(e, OUTPUT);
-    pinMode(f, OUTPUT);
-    pinMode(g, OUTPUT);
-    pinMode(DP, OUTPUT);
-}
-
-void display_number(int number) {
-    digitalWrite(a, 0);
-    digitalWrite(b, 0);
-    digitalWrite(c_, 0);
-    digitalWrite(d, 0);
-    digitalWrite(e, 0);
-    digitalWrite(f, 0);
-    digitalWrite(g, 0);
-    digitalWrite(DP, 0);
-
-    switch (number) {
-        case 0:
-            digitalWrite(a, 1);
-            digitalWrite(b, 1);
-            digitalWrite(c_, 1);
-            digitalWrite(d, 1);
-            digitalWrite(e, 1);
-            digitalWrite(f, 1);
-            break;
-        case 1:
-            digitalWrite(b, 1);
-            digitalWrite(c_, 1);
-            break;
-        case 2:
-            digitalWrite(a, 1);
-            digitalWrite(b, 1);
-            digitalWrite(d, 1);
-            digitalWrite(e, 1);
-            digitalWrite(g, 1);
-            break;
-        case 3:
-            digitalWrite(a, 1);
-            digitalWrite(b, 1);
-            digitalWrite(c_, 1);
-            digitalWrite(d, 1);
-            digitalWrite(g, 1);
-            break;
-        case 4:
-            digitalWrite(b, 1);
-            digitalWrite(c_, 1);
-            digitalWrite(f, 1);
-            digitalWrite(g, 1);
-            break;
-        case 5:
-            digitalWrite(a, 1);
-            digitalWrite(c_, 1);
-            digitalWrite(d, 1);
-            digitalWrite(f, 1);
-            digitalWrite(g, 1);
-            break;
-        case 6:
-            digitalWrite(a, 1);
-            digitalWrite(c_, 1);
-            digitalWrite(d, 1);
-            digitalWrite(e, 1);
-            digitalWrite(f, 1);
-            digitalWrite(g, 1);
-            break;
-        case 7:
-            digitalWrite(a, 1);
-            digitalWrite(b, 1);
-            digitalWrite(c_, 1);
-            break;
-        case 8:
-            digitalWrite(a, 1);
-            digitalWrite(b, 1);
-            digitalWrite(c_, 1);
-            digitalWrite(d, 1);
-            digitalWrite(e, 1);
-            digitalWrite(f, 1);
-            digitalWrite(g, 1);
-            break;
-        case 9:
-            digitalWrite(a, 1);
-            digitalWrite(b, 1);
-            digitalWrite(c_, 1);
-            digitalWrite(d, 1);
-            digitalWrite(f, 1);
-            digitalWrite(g, 1);
-            break;
-        default:
-            break;
-    }
-}
+void setup_gpio();
+void display_number(int number);
 
 int main(int argc, char *argv[]) {
     clock_t start1, end1, start2, end2;
@@ -182,7 +78,6 @@ int main(int argc, char *argv[]) {
         return -1;
     }
     fread(&net, sizeof(model), 1, weights);
-    fclose(weights);
 
     char *file;
     if (atoi(argv[1]) == 0) {
@@ -370,6 +265,27 @@ void Linear(float *feature_in, float *feature_out, float *weight, float *bias) {
     }
 }
 
+void Log_softmax(float *activation) {
+    /*          PUT YOUR CODE HERE          */
+    double max = activation[0];
+    double sum = 0.0;
+
+    for (int i = 1; i < CLASS; i++) {
+        if (activation[i] > max) {
+            max = activation[i];
+        }
+    }
+
+    for (int i = 0; i < CLASS; i++) {
+        activation[i] = exp(activation[i] - max);
+        sum += activation[i];
+    }
+
+    for (int i = 0; i < CLASS; i++) {
+        activation[i] = log(activation[i] / sum);
+    }
+}
+
 int Get_pred(float *activation) {
     /*          PUT YOUR CODE HERE          */
     // Get_pred input : float *activation
@@ -435,5 +351,32 @@ void save_image(float *feature_scaled, float *cam) {
 
     free(output);
     free(output_bmp);
-    return;
+}
+
+void setup_gpio() {
+    if (wiringPiSetup() == -1) {
+        printf("GPIO setup failed\n");
+        exit(1);
+    }
+    for (int i = 0; i < 7; i++) {
+        pinMode(pin_num[i], OUTPUT);
+    }
+}
+
+void display_number(int number) {
+    int hex_table[10][7] = {
+        {1, 1, 1, 1, 1, 1, 0}, // 0
+        {0, 1, 1, 0, 0, 0, 0}, // 1
+        {1, 1, 0, 1, 1, 0, 1}, // 2
+        {1, 1, 1, 1, 0, 0, 1}, // 3
+        {0, 1, 1, 0, 0, 1, 1}, // 4
+        {1, 0, 1, 1, 0, 1, 1}, // 5
+        {1, 0, 1, 1, 1, 1, 1}, // 6
+        {1, 1, 1, 0, 0, 0, 0}, // 7
+        {1, 1, 1, 1, 1, 1, 1}, // 8
+        {1, 1, 1, 1, 0, 1, 1}  // 9
+    };
+    for (int i = 0; i < 7; i++) {
+        digitalWrite(pin_num[i], hex_table[number][i]);
+    }
 }
