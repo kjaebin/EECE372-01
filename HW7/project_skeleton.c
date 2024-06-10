@@ -63,25 +63,20 @@ void Get_CAM(float* activation, float* cam, int pred, float* weight);
 void save_image(float* feature_scaled, float* cam);
 
 int main(int argc, char* argv[]) {
-    printf("Starting program...\n");
     clock_t start1, end1, start2, end2;
 
     model net;
     FILE* weights;
     weights = fopen("./weights.bin", "rb");
-    if (weights == NULL) {
-        printf("Failed to open weights file.\n");
-        return 1;
-    }
     fread(&net, sizeof(model), 1, weights);
     fclose(weights);
-    printf("Loaded weights.\n");
 
     char* file;
     if (argc != 2) {
         printf("Usage: %s <mode>\n", argv[0]);
         return 1;
     }
+
     int mode = atoi(argv[1]);
 
     if (mode == 0) {
@@ -100,7 +95,6 @@ int main(int argc, char* argv[]) {
         printf("Wrong Input!\n");
         return 1;
     }
-    printf("Selected file: %s\n", file);
 
     unsigned char* feature_in;
     unsigned char* feature_resize;
@@ -114,33 +108,27 @@ int main(int argc, char* argv[]) {
     float cam[1 * I3_H * I3_W];
     int channels, height, width;
 
+    feature_in = stbi_load(file, &width, &height, &channels, 3);
+    if (feature_in == NULL) {
+        printf("Failed to load image: %s\n", file);
+        return 1;
+    }
+
     if (mode == 0) {
-        feature_resize = stbi_load(file, &width, &height, &channels, 3);
+        feature_resize = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
         if (feature_resize == NULL) {
-            printf("Failed to load image: %s\n", file);
+            printf("Failed to allocate memory for feature_resize.\n");
+            stbi_image_free(feature_in);
             return 1;
         }
-        feature_in = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
-        if (feature_in == NULL) {
-            printf("Failed to allocate memory for feature_in.\n");
-            stbi_image_free(feature_resize);
-            return 1;
-        }
-        resize_280_to_28(feature_resize, feature_in);
+        resize_280_to_28(feature_in, feature_resize);
+        free(feature_in);
+        feature_in = feature_resize;
     }
-    else {
-        feature_in = stbi_load(file, &width, &height, &channels, 3);
-        if (feature_in == NULL) {
-            printf("Failed to load image: %s\n", file);
-            return 1;
-        }
-    }
-    printf("Image loaded successfully.\n");
 
     int pred = 0;
     Gray_scale(feature_in, feature_gray);
     Normalized(feature_gray, feature_scaled);
-    printf("Image preprocessing done.\n");
 
     /***************      Implement these functions      ********************/
     start1 = clock();
@@ -163,7 +151,6 @@ int main(int argc, char* argv[]) {
     end2 = clock() - start2;
     /************************************************************************/
     save_image(feature_scaled, cam);
-    printf("Inference done.\n");
 
     /*          PUT YOUR CODE HERE                      */
     /*          7-segment                               */
@@ -177,11 +164,9 @@ int main(int argc, char* argv[]) {
 
     if (mode == 0) {
         free(feature_in);
-        stbi_image_free(feature_resize);
     }
-    else {
-        stbi_image_free(feature_in);
-    }
+    stbi_image_free(feature_in);
+
     return 0;
 }
 
@@ -209,7 +194,6 @@ void Gray_scale(unsigned char* feature_in, unsigned char* feature_out) {
             feature_out[I1_W * h + w] = sum / 3;
         }
     }
-
     return;
 }
 
@@ -218,7 +202,6 @@ void Normalized(unsigned char* feature_in, float* feature_out) {
     for (int i = 0; i < I1_H * I1_W; i++) {
         feature_out[i] = ((float)feature_in[i]) / 255.0;
     }
-
     return;
 }
 
@@ -280,7 +263,6 @@ void Linear(float* feature_in, float* feature_out, float* weight, float* bias) {
 }
 
 void Log_softmax(float* activation) {
-    /*            DO NOT MODIFIY            */
     double max = activation[0];
     double sum = 0.0;
 
@@ -298,12 +280,9 @@ void Log_softmax(float* activation) {
     for (int i = 0; i < CLASS; i++) {
         activation[i] = log(activation[i] / sum);
     }
-
-    return;
 }
 
 int Get_pred(float* activation) {
-    /*          PUT YOUR CODE HERE          */
     int pred = 0;
     float max_val = activation[0];
     for (int i = 1; i < CLASS; i++) {
@@ -316,7 +295,6 @@ int Get_pred(float* activation) {
 }
 
 void Get_CAM(float* activation, float* cam, int pred, float* weight) {
-    /*          PUT YOUR CODE HERE          */
     for (int i = 0; i < I3_H * I3_W; i++) {
         cam[i] = 0;
         for (int j = 0; j < I3_C; j++) {
@@ -326,7 +304,6 @@ void Get_CAM(float* activation, float* cam, int pred, float* weight) {
 }
 
 void save_image(float* feature_scaled, float* cam) {
-    /*            DO NOT MODIFIY            */
     float* output = (float*)malloc(sizeof(float) * 3 * I1_H * I1_W);
     unsigned char* output_bmp = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
     unsigned char* output_bmp_resized = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * 14 * I1_W * 14);
