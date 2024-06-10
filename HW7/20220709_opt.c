@@ -258,12 +258,15 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
     }
 }
 
+#include <arm_neon.h>
+
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
     // Output 초기화
+    float32x4_t zero_vector = vdupq_n_f32(0.0f);
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
-            for (int ow = 0; ow < out_W; ow++) {
-                feature_out[oc * out_H * out_W + oh * out_W + ow] = 0.0f;
+            for (int ow = 0; ow < out_W; ow += 4) {
+                vst1q_f32(&feature_out[oc * out_H * out_W + oh * out_W + ow], zero_vector);
             }
         }
     }
@@ -276,24 +279,24 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                 for (int ic = 0; ic < in_C; ic++) {
                     for (int kh = 0; kh < K; kh++) {
                         int ih = oh * S + kh;
-                        for (int kw = 0; kw < K; kw++) {
+                        for (int kw = 0; kw < K; kw += 4) {
                             int iw = ow * S + kw;
-                            float32x4_t in_value, weight_value;
-
                             if (iw + 4 <= in_W) {
-                                in_value = vld1q_f32(&feature_in[ic * in_H * in_W + ih * in_W + iw]);
-                                weight_value = vld1q_f32(&weight[oc * in_C * K * K + ic * K * K + kh * K + kw]);
-                            } else {
-                                float in_temp[4] = {0};
-                                float weight_temp[4] = {0};
+                                float32x4_t in_value = vld1q_f32(&feature_in[ic * in_H * in_W + ih * in_W + iw]);
+                                float32x4_t weight_value = vld1q_f32(&weight[oc * in_C * K * K + ic * K * K + kh * K + kw]);
+                                partial_sum = vmlaq_f32(partial_sum, in_value, weight_value);
+                            }
+                            else {
+                                float in_temp[4] = { 0 };
+                                float weight_temp[4] = { 0 };
                                 for (int i = 0; i < 4 && iw + i < in_W; i++) {
                                     in_temp[i] = feature_in[ic * in_H * in_W + ih * in_W + iw + i];
                                     weight_temp[i] = weight[oc * in_C * K * K + ic * K * K + kh * K + kw + i];
                                 }
-                                in_value = vld1q_f32(in_temp);
-                                weight_value = vld1q_f32(weight_temp);
+                                float32x4_t in_value = vld1q_f32(in_temp);
+                                float32x4_t weight_value = vld1q_f32(weight_temp);
+                                partial_sum = vmlaq_f32(partial_sum, in_value, weight_value);
                             }
-                            partial_sum = vmlaq_f32(partial_sum, in_value, weight_value);
                         }
                     }
                 }
@@ -301,16 +304,16 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                 vst1q_f32(sum, partial_sum);
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum[0] + sum[1] + sum[2] + sum[3] + bias[oc];
 
-                // Debug 메시지 추가
-                if (oc == 0 && oh == 0 && ow < 10) {
+                // 중간 결과 출력
+                if (oc == 0 && oh == 0 && ow < 10) { // 일부 값만 출력
                     printf("partial_sum: [%f, %f, %f, %f], feature_out[%d]: %f\n",
-                           sum[0], sum[1], sum[2], sum[3],
-                           ow, feature_out[oc * out_H * out_W + oh * out_W + ow]);
+                        sum[0], sum[1], sum[2], sum[3], ow, feature_out[oc * out_H * out_W + oh * out_W + ow]);
                 }
             }
         }
     }
 }
+
 
 void ReLU(float* feature_in, int elem_num) {
     float32x4_t zero_vector = vdupq_n_f32(0.0f); // Initialize zero vector
