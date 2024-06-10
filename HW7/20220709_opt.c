@@ -286,6 +286,14 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                                 float32x4_t in_value = vld1q_f32(&feature_in[ic * in_H * in_W + ih * in_W + iw]);
                                 float32x4_t weight_value = vld1q_f32(&weight[oc * in_C * K * K + ic * K * K + kh * K + kw]);
                                 partial_sum = vmlaq_f32(partial_sum, in_value, weight_value);
+                                // Debug 출력
+                                if (oc == 0 && oh == 0 && ow == 0) {
+                                    printf("in_value: [%f, %f, %f, %f], weight_value: [%f, %f, %f, %f]\n",
+                                           vgetq_lane_f32(in_value, 0), vgetq_lane_f32(in_value, 1), vgetq_lane_f32(in_value, 2), vgetq_lane_f32(in_value, 3),
+                                           vgetq_lane_f32(weight_value, 0), vgetq_lane_f32(weight_value, 1), vgetq_lane_f32(weight_value, 2), vgetq_lane_f32(weight_value, 3));
+                                    printf("partial_sum: [%f, %f, %f, %f]\n",
+                                           vgetq_lane_f32(partial_sum, 0), vgetq_lane_f32(partial_sum, 1), vgetq_lane_f32(partial_sum, 2), vgetq_lane_f32(partial_sum, 3));
+                                }
                             } else {
                                 float in_temp[4] = { 0 };
                                 float weight_temp[4] = { 0 };
@@ -296,6 +304,14 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                                 float32x4_t in_value = vld1q_f32(in_temp);
                                 float32x4_t weight_value = vld1q_f32(weight_temp);
                                 partial_sum = vmlaq_f32(partial_sum, in_value, weight_value);
+                                // Debug 출력
+                                if (oc == 0 && oh == 0 && ow == 0) {
+                                    printf("in_temp: [%f, %f, %f, %f], weight_temp: [%f, %f, %f, %f]\n",
+                                           in_temp[0], in_temp[1], in_temp[2], in_temp[3],
+                                           weight_temp[0], weight_temp[1], weight_temp[2], weight_temp[3]);
+                                    printf("partial_sum: [%f, %f, %f, %f]\n",
+                                           vgetq_lane_f32(partial_sum, 0), vgetq_lane_f32(partial_sum, 1), vgetq_lane_f32(partial_sum, 2), vgetq_lane_f32(partial_sum, 3));
+                                }
                             }
                         }
                     }
