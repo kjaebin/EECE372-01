@@ -304,7 +304,7 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                 vst1q_f32(sum, partial_sum);
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum[0] + sum[1] + sum[2] + sum[3] + bias[oc];
                 if (oc == 0 && oh == 0 && ow < 10) { // 일부 값만 출력
-                    printf("partial_sum: [%f, %f, %f, %f], feature_out[%d]: %f\n", sum[0], sum[1], sum[2], sum[3], ow, feature_out[oc * out_H * out_W + oh * out_W + ow]);
+                    printf("Conv2 - partial_sum: [%f, %f, %f, %f], feature_out[%d]: %f\n", sum[0], sum[1], sum[2], sum[3], ow, feature_out[oc * out_H * out_W + oh * out_W + ow]);
                 }
             }
         }
