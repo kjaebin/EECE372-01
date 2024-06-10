@@ -234,48 +234,41 @@ void Normalized(unsigned char* feature_in, float* feature_out) {
 }
 
 void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
-    /* NEON을 사용하여 zero padding 구현 */
-    float32x4_t zero_vector = vdupq_n_f32(0.0); // 0으로 구성된 벡터 생성
-
+    /*          PUT YOUR CODE HERE          */
+    // Padding input : float *feature_in
+    // Padding output: float *feature_out
     for (int c = 0; c < C; c++) {
-        // 상단과 하단 패딩 (0번째 행과 마지막 행)
-        for (int i = 0; i < (W + 2) / 4; i++) {
-            vst1q_f32(&feature_out[c * (H + 2) * (W + 2) + 0 * (W + 2) + i * 4], zero_vector); // 0번째 행
-            vst1q_f32(&feature_out[c * (H + 2) * (W + 2) + (H + 1) * (W + 2) + i * 4], zero_vector); // 마지막 행
-        }
-
-        // 중앙 패딩 (1번째 행부터 H번째 행)
-        for (int h = 1; h <= H; h++) {
-            feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + 0] = 0; // 0번째 열
-            feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + (W + 1)] = 0; // 마지막 열
-            for (int w = 1; w <= W; w += 4) {
-                float32x4_t neon_in = vld1q_f32(&feature_in[c * H * W + (h - 1) * W + (w - 1)]);
-                vst1q_f32(&feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w], neon_in);
+        for (int h = 0; h < H + 2; h++) {
+            for (int w = 0; w < W + 2; w++) {
+                if (h == 0 || h == H + 1 || w == 0 || w == W + 1) {
+                    feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w] = 0;
+                }
+                else {
+                    feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w] = feature_in[c * H * W + (h - 1) * W + (w - 1)];
+                }
             }
         }
     }
 }
 
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
+    /*          PUT YOUR CODE HERE          */
+    // Conv_2d input : float *feature_in
+    // Conv_2d output: float *feature_out
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float32x4_t partial_sum = vdupq_n_f32(0.0f); // initialize partial sum vector to zero
+                float sum = 0;
                 for (int ic = 0; ic < in_C; ic++) {
                     for (int kh = 0; kh < K; kh++) {
-                        int ih = oh * S + kh;
                         for (int kw = 0; kw < K; kw++) {
+                            int ih = oh * S + kh;
                             int iw = ow * S + kw;
-                            // Handle boundary conditions for kw
-                            float in_val = feature_in[ic * in_H * in_W + ih * in_W + iw];
-                            float w_val = weight[oc * in_C * K * K + ic * K * K + kh * K + kw];
-                            partial_sum = vmlaq_n_f32(partial_sum, vdupq_n_f32(in_val), w_val);
+                            sum += feature_in[ic * in_H * in_W + ih * in_W + iw] * weight[oc * in_C * K * K + ic * K * K + kh * K + kw];
                         }
                     }
                 }
-                float sum[4];
-                vst1q_f32(sum, partial_sum);
-                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum[0] + sum[1] + sum[2] + sum[3] + bias[oc];
+                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
         }
     }
