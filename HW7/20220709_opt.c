@@ -312,6 +312,25 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     }
 }
 
+void ReLU(float* feature_in, int elem_num) {
+    float32x4_t zero_vector = vdupq_n_f32(0.0f); // Initialize zero vector
+    int i;
+
+    for (i = 0; i < elem_num; i += 4) {
+        float32x4_t in_vector = vld1q_f32(&feature_in[i]); // Load 4 elements from feature_in
+        uint32x4_t condition = vcltq_f32(in_vector, zero_vector); // Compare in_vector with zero_vector
+        float32x4_t result = vbslq_f32(condition, zero_vector, in_vector); // Select between zero_vector and in_vector
+        vst1q_f32(&feature_in[i], result); // Store the result back to feature_in
+    }
+
+    // Handle the remaining elements
+    for (; i < elem_num; i++) {
+        if (feature_in[i] < 0) {
+            feature_in[i] = 0;
+        }
+    }
+}
+
 void Linear(float* feature_in, float* feature_out, float* weight, float* bias) {
     for (int i = 0; i < CLASS; i++) {
         float32x4_t partial_sum = vdupq_n_f32(0.0f); // Initialize partial sum vector to 0
