@@ -7,11 +7,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
+#include <wiringPi.h>
+#include <sys/types.h>
+#include <termios.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #include "stb_image.h"
 #include "stb_image_resize2.h"
 #include "stb_image_write.h"
-#include <wiringPi.h>
 
 #define CLOCKS_PER_US ((double)CLOCKS_PER_SEC / 1000000)
 
@@ -38,6 +43,8 @@
 #define CONV2_STRIDE 1
 #define FC_IN (I2_H * I2_W)
 #define FC_OUT CLASS
+
+#define BAUDRATE B1000000
 
 typedef struct _model {
     float conv1_weight[I2_C * I1_C * CONV1_KERNAL * CONV1_KERNAL];
@@ -78,13 +85,45 @@ int main(int argc, char *argv[]) {
         return -1;
     }
     fread(&net, sizeof(model), 1, weights);
+    fclose(weights);
 
     char *file;
     if (atoi(argv[1]) == 0) {
-        /*          PUT YOUR CODE HERE                      */
-        /*          Serial communication                    */
-        system("libcamera-still -e bmp --width 280 --height 280 -t 20000 -o image.bmp");
-        file = "image.bmp";
+        int fd;
+        struct termios newtio;
+        char buf[256];
+
+        fd = open("/dev/ttyAMA0", O_RDWR | O_NOCTTY);
+        if (fd < 0) {
+            fprintf(stderr, "failed to open port: %s.\r\n", strerror(errno));
+            printf("Make sure you are executing in sudo.\r\n");
+            return -1;
+        }
+
+        memset(&newtio, 0, sizeof(newtio));
+        newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+        newtio.c_iflag = ICRNL;
+        newtio.c_oflag = 0;
+        newtio.c_lflag = 0;
+        newtio.c_cc[VTIME] = 0;
+        newtio.c_cc[VMIN] = 1;
+
+        tcflush(fd, TCIFLUSH);
+        tcsetattr(fd, TCSANOW, &newtio);
+
+        while (1) {
+            int cnt = read(fd, buf, 255);
+            if (cnt > 0) {
+                buf[cnt] = '\0';
+                printf("Received: %s\r\n", buf);
+                if (strcmp(buf, "c") == 0 || strcmp(buf, "C") == 0) {
+                    system("libcamera-still -e bmp --width 280 --height 280 -t 2000 -o image.bmp");
+                    file = "image.bmp";
+                    break;
+                }
+            }
+        }
+        close(fd);
     } else if (atoi(argv[1]) == 1) {
         file = "example_1.bmp";
     } else if (atoi(argv[1]) == 2) {
@@ -266,7 +305,6 @@ void Linear(float *feature_in, float *feature_out, float *weight, float *bias) {
 }
 
 void Log_softmax(float *activation) {
-    /*          PUT YOUR CODE HERE          */
     double max = activation[0];
     double sum = 0.0;
 
@@ -287,9 +325,6 @@ void Log_softmax(float *activation) {
 }
 
 int Get_pred(float *activation) {
-    /*          PUT YOUR CODE HERE          */
-    // Get_pred input : float *activation
-    // Get_pred output: int pred
     int pred = 0;
     float max_val = activation[0];
     for (int i = 1; i < CLASS; i++) {
@@ -302,9 +337,6 @@ int Get_pred(float *activation) {
 }
 
 void Get_CAM(float *activation, float *cam, int pred, float *weight) {
-    /*          PUT YOUR CODE HERE          */
-    // Get_CAM input : float *activation
-    // Get_CAM output: float *cam
     for (int i = 0; i < I3_H * I3_W; i++) {
         cam[i] = 0;
         for (int j = 0; j < I3_C; j++) {
@@ -314,7 +346,6 @@ void Get_CAM(float *activation, float *cam, int pred, float *weight) {
 }
 
 void save_image(float *feature_scaled, float *cam) {
-    /*            DO NOT MODIFY            */
     float *output = (float *)malloc(sizeof(float) * 3 * I1_H * I1_W);
     unsigned char *output_bmp = (unsigned char *)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
     unsigned char *output_bmp_resized = (unsigned char *)malloc(sizeof(unsigned char) * 3 * I1_H * 14 * I1_W * 14);
