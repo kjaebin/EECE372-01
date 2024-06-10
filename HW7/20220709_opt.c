@@ -266,17 +266,17 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                         int ih = oh * S + kh;
                         for (int kw = 0; kw < K; kw += 4) {
                             int iw = ow * S + kw;
-                            // Ensure the input memory is within bounds
                             if (iw + 3 < in_W) {
                                 float32x4_t in_value = vld1q_f32(&feature_in[ic * in_H * in_W + ih * in_W + iw]);
                                 float32x4_t weight_value = vld1q_f32(&weight[oc * in_C * K * K + ic * K * K + kh * K + kw]);
                                 partial_sum = vmlaq_f32(partial_sum, in_value, weight_value);
-                            }
-                            else {
+                            } else {
                                 // Handle boundary cases manually
                                 for (int k = 0; k < 4; k++) {
                                     if (iw + k < in_W) {
-                                        partial_sum = vsetq_lane_f32(vgetq_lane_f32(partial_sum, k) + feature_in[ic * in_H * in_W + ih * in_W + iw + k] * weight[oc * in_C * K * K + ic * K * K + kh * K + kw + k], partial_sum, k);
+                                        float in_val = feature_in[ic * in_H * in_W + ih * in_W + iw + k];
+                                        float weight_val = weight[oc * in_C * K * K + ic * K * K + kh * K + kw + k];
+                                        partial_sum = vsetq_lane_f32(vgetq_lane_f32(partial_sum, k) + in_val * weight_val, partial_sum, k);
                                     }
                                 }
                             }
