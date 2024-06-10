@@ -174,8 +174,10 @@ int main(int argc, char* argv[]) {
     display_number(pred);
 
     printf("Zero Padding time: %9.3lf[us]\n", (double)(end_padding - start_padding) / CLOCKS_PER_US);
-    printf("Conv1 + ReLU1 time: %9.3lf[us]\n", (double)(end_conv1 - start_conv1 + end_relu1 - start_relu1) / CLOCKS_PER_US);
-    printf("Conv2 + ReLU2 time: %9.3lf[us]\n", (double)(end_conv2 - start_conv2 + end_relu2 - start_relu2) / CLOCKS_PER_US);
+    printf("Conv1 time: %9.3lf[us]\n", (double)(end_conv1 - start_conv1) / CLOCKS_PER_US);
+    printf("ReLU1 time: %9.3lf[us]\n", (double)(end_relu1 - start_relu1) / CLOCKS_PER_US);
+    printf("Conv2 time: %9.3lf[us]\n", (double)(end_conv2 - start_conv2) / CLOCKS_PER_US);
+    printf("ReLU2 time: %9.3lf[us]\n", (double)(end_relu2 - start_relu2) / CLOCKS_PER_US);
     printf("FC time: %9.3lf[us]\n", (double)(end_fc - start_fc) / CLOCKS_PER_US);
     printf("Total time (excluding Softmax): %9.3lf[us]\n", (double)end1 / CLOCKS_PER_US);
     printf("CAM time: %9.3lf[us]\n", (double)end2 / CLOCKS_PER_US);
