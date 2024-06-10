@@ -7,9 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <errno.h>
-#include <string.h>
-#include <wiringPi.h>
+#include <wiringPi.h>  // GPIO 제어를 위한 라이브러리
 
 #include "stb_image.h"
 #include "stb_image_resize2.h"
@@ -41,14 +39,14 @@
 #define FC_IN (I2_H * I2_W)
 #define FC_OUT CLASS
 
-#define PIN_A 22
-#define PIN_B 21
-#define PIN_C 28
-#define PIN_D 25
-#define PIN_E 29
-#define PIN_F 23
-#define PIN_G 24
-#define PIN_DP 27
+#define a 22
+#define b 21
+#define c_ 28
+#define d 25
+#define e 29
+#define f 23
+#define g 24
+#define DP 27
 
 typedef struct _model {
     float conv1_weight[I2_C * I1_C * CONV1_KERNAL * CONV1_KERNAL];
@@ -73,7 +71,105 @@ void Log_softmax(float *activation);
 int Get_pred(float *activation);
 void Get_CAM(float *activation, float *cam, int pred, float *weight);
 void save_image(float *feature_scaled, float *cam);
-void display_digit(int digit);
+
+void setup_gpio() {
+    if (wiringPiSetup() == -1) {
+        exit(1);
+    }
+    pinMode(a, OUTPUT);
+    pinMode(b, OUTPUT);
+    pinMode(c_, OUTPUT);
+    pinMode(d, OUTPUT);
+    pinMode(e, OUTPUT);
+    pinMode(f, OUTPUT);
+    pinMode(g, OUTPUT);
+    pinMode(DP, OUTPUT);
+}
+
+void display_number(int number) {
+    digitalWrite(a, 0);
+    digitalWrite(b, 0);
+    digitalWrite(c_, 0);
+    digitalWrite(d, 0);
+    digitalWrite(e, 0);
+    digitalWrite(f, 0);
+    digitalWrite(g, 0);
+    digitalWrite(DP, 0);
+
+    switch (number) {
+        case 0:
+            digitalWrite(a, 1);
+            digitalWrite(b, 1);
+            digitalWrite(c_, 1);
+            digitalWrite(d, 1);
+            digitalWrite(e, 1);
+            digitalWrite(f, 1);
+            break;
+        case 1:
+            digitalWrite(b, 1);
+            digitalWrite(c_, 1);
+            break;
+        case 2:
+            digitalWrite(a, 1);
+            digitalWrite(b, 1);
+            digitalWrite(d, 1);
+            digitalWrite(e, 1);
+            digitalWrite(g, 1);
+            break;
+        case 3:
+            digitalWrite(a, 1);
+            digitalWrite(b, 1);
+            digitalWrite(c_, 1);
+            digitalWrite(d, 1);
+            digitalWrite(g, 1);
+            break;
+        case 4:
+            digitalWrite(b, 1);
+            digitalWrite(c_, 1);
+            digitalWrite(f, 1);
+            digitalWrite(g, 1);
+            break;
+        case 5:
+            digitalWrite(a, 1);
+            digitalWrite(c_, 1);
+            digitalWrite(d, 1);
+            digitalWrite(f, 1);
+            digitalWrite(g, 1);
+            break;
+        case 6:
+            digitalWrite(a, 1);
+            digitalWrite(c_, 1);
+            digitalWrite(d, 1);
+            digitalWrite(e, 1);
+            digitalWrite(f, 1);
+            digitalWrite(g, 1);
+            break;
+        case 7:
+            digitalWrite(a, 1);
+            digitalWrite(b, 1);
+            digitalWrite(c_, 1);
+            break;
+        case 8:
+            digitalWrite(a, 1);
+            digitalWrite(b, 1);
+            digitalWrite(c_, 1);
+            digitalWrite(d, 1);
+            digitalWrite(e, 1);
+            digitalWrite(f, 1);
+            digitalWrite(g, 1);
+            break;
+        case 9:
+            digitalWrite(a, 1);
+            digitalWrite(b, 1);
+            digitalWrite(c_, 1);
+            digitalWrite(d, 1);
+            digitalWrite(f, 1);
+            digitalWrite(g, 1);
+            break;
+        default:
+            break;
+    }
+}
 
 int main(int argc, char *argv[]) {
     clock_t start1, end1, start2, end2;
@@ -82,38 +178,25 @@ int main(int argc, char *argv[]) {
     FILE *weights;
     weights = fopen("./weights.bin", "rb");
     if (weights == NULL) {
-        printf("Error opening weights file: %s\n", strerror(errno));
-        return 1;
+        printf("Error opening weights file.\n");
+        return -1;
     }
-    size_t result = fread(&net, sizeof(model), 1, weights);
-    if (result != 1) {
-        printf("Error reading weights file: %s\n", strerror(errno));
-        fclose(weights);
-        return 1;
-    }
+    fread(&net, sizeof(model), 1, weights);
     fclose(weights);
 
     char *file;
-    if (argc != 2) {
-        printf("Usage: %s <mode>\n", argv[0]);
-        return 1;
-    }
-
     if (atoi(argv[1]) == 0) {
         /*          PUT YOUR CODE HERE                      */
         /*          Serial communication                    */
         system("libcamera-still -e bmp --width 280 --height 280 -t 20000 -o image.bmp");
         file = "image.bmp";
-    }
-    else if (atoi(argv[1]) == 1) {
+    } else if (atoi(argv[1]) == 1) {
         file = "example_1.bmp";
-    }
-    else if (atoi(argv[1]) == 2) {
+    } else if (atoi(argv[1]) == 2) {
         file = "example_2.bmp";
-    }
-    else {
+    } else {
         printf("Wrong Input!\n");
-        return 1;
+        exit(1);
     }
 
     unsigned char *feature_in;
@@ -132,21 +215,15 @@ int main(int argc, char *argv[]) {
         feature_resize = stbi_load(file, &width, &height, &channels, 3);
         if (feature_resize == NULL) {
             printf("Failed to load image: %s\n", file);
-            return 1;
+            return -1;
         }
         feature_in = (unsigned char *)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
-        if (feature_in == NULL) {
-            printf("Failed to allocate memory for feature_in.\n");
-            stbi_image_free(feature_resize);
-            return 1;
-        }
         resize_280_to_28(feature_resize, feature_in);
-    }
-    else {
+    } else {
         feature_in = stbi_load(file, &width, &height, &channels, 3);
         if (feature_in == NULL) {
             printf("Failed to load image: %s\n", file);
-            return 1;
+            return -1;
         }
     }
 
@@ -175,22 +252,8 @@ int main(int argc, char *argv[]) {
     /************************************************************************/
     save_image(feature_scaled, cam);
 
-    /*          PUT YOUR CODE HERE                      */
-    /*          7-segment 디스플레이 초기화 및 예측 결과 표시 */
-    if (wiringPiSetup() == -1) { // library include 실패시 종료
-        return 1;
-    }
-
-    pinMode(PIN_A, OUTPUT);
-    pinMode(PIN_B, OUTPUT);
-    pinMode(PIN_C, OUTPUT);
-    pinMode(PIN_D, OUTPUT);
-    pinMode(PIN_E, OUTPUT);
-    pinMode(PIN_F, OUTPUT);
-    pinMode(PIN_G, OUTPUT);
-    pinMode(PIN_DP, OUTPUT);
-
-    display_digit(pred);
+    setup_gpio();
+    display_number(pred);
 
     printf("Log softmax value\n");
     for (int i = 0; i < CLASS; i++) {
@@ -202,15 +265,14 @@ int main(int argc, char *argv[]) {
     if (atoi(argv[1]) == 0) {
         free(feature_in);
         stbi_image_free(feature_resize);
-    }
-    else {
+    } else {
         stbi_image_free(feature_in);
     }
     return 0;
 }
 
 void resize_280_to_28(unsigned char *in, unsigned char *out) {
-    /*            DO NOT MODIFIY            */
+    /*            DO NOT MODIFY            */
     int x, y, c;
     for (y = 0; y < 28; y++) {
         for (x = 0; x < 28; x++) {
@@ -223,7 +285,7 @@ void resize_280_to_28(unsigned char *in, unsigned char *out) {
 }
 
 void Gray_scale(unsigned char *feature_in, unsigned char *feature_out) {
-    /*            DO NOT MODIFIY            */
+    /*            DO NOT MODIFY            */
     for (int h = 0; h < I1_H; h++) {
         for (int w = 0; w < I1_W; w++) {
             int sum = 0;
@@ -233,28 +295,27 @@ void Gray_scale(unsigned char *feature_in, unsigned char *feature_out) {
             feature_out[I1_W * h + w] = sum / 3;
         }
     }
-
     return;
 }
 
 void Normalized(unsigned char *feature_in, float *feature_out) {
-    /*            DO NOT MODIFIY            */
+    /*            DO NOT MODIFY            */
     for (int i = 0; i < I1_H * I1_W; i++) {
         feature_out[i] = ((float)feature_in[i]) / 255.0;
     }
-
     return;
 }
 
 void Padding(float *feature_in, float *feature_out, int C, int H, int W) {
     /*          PUT YOUR CODE HERE          */
+    // Padding input : float *feature_in
+    // Padding output: float *feature_out
     for (int c = 0; c < C; c++) {
         for (int h = 0; h < H + 2; h++) {
             for (int w = 0; w < W + 2; w++) {
                 if (h == 0 || h == H + 1 || w == 0 || w == W + 1) {
                     feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w] = 0;
-                }
-                else {
+                } else {
                     feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w] = feature_in[c * H * W + (h - 1) * W + (w - 1)];
                 }
             }
@@ -264,6 +325,8 @@ void Padding(float *feature_in, float *feature_out, int C, int H, int W) {
 
 void Conv_2d(float *feature_in, float *feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float *weight, float *bias) {
     /*          PUT YOUR CODE HERE          */
+    // Conv_2d input : float *feature_in
+    // Conv_2d output: float *feature_out
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
@@ -285,6 +348,8 @@ void Conv_2d(float *feature_in, float *feature_out, int in_C, int in_H, int in_W
 
 void ReLU(float *feature_in, int elem_num) {
     /*          PUT YOUR CODE HERE          */
+    // ReLU input : float *feature_in
+    // ReLU output: float *feature_in
     for (int i = 0; i < elem_num; i++) {
         if (feature_in[i] < 0) {
             feature_in[i] = 0;
@@ -294,6 +359,8 @@ void ReLU(float *feature_in, int elem_num) {
 
 void Linear(float *feature_in, float *feature_out, float *weight, float *bias) {
     /*          PUT YOUR CODE HERE          */
+    // Linear input : float *feature_in
+    // Linear output: float *feature_out
     for (int i = 0; i < CLASS; i++) {
         float sum = 0;
         for (int j = 0; j < I3_C * I3_H * I3_W; j++) {
@@ -303,31 +370,10 @@ void Linear(float *feature_in, float *feature_out, float *weight, float *bias) {
     }
 }
 
-void Log_softmax(float *activation) {
-    /*            DO NOT MODIFIY            */
-    double max = activation[0];
-    double sum = 0.0;
-
-    for (int i = 1; i < CLASS; i++) {
-        if (activation[i] > max) {
-            max = activation[i];
-        }
-    }
-
-    for (int i = 0; i < CLASS; i++) {
-        activation[i] = exp(activation[i] - max);
-        sum += activation[i];
-    }
-
-    for (int i = 0; i < CLASS; i++) {
-        activation[i] = log(activation[i] / sum);
-    }
-
-    return;
-}
-
 int Get_pred(float *activation) {
     /*          PUT YOUR CODE HERE          */
+    // Get_pred input : float *activation
+    // Get_pred output: int pred
     int pred = 0;
     float max_val = activation[0];
     for (int i = 1; i < CLASS; i++) {
@@ -341,6 +387,8 @@ int Get_pred(float *activation) {
 
 void Get_CAM(float *activation, float *cam, int pred, float *weight) {
     /*          PUT YOUR CODE HERE          */
+    // Get_CAM input : float *activation
+    // Get_CAM output: float *cam
     for (int i = 0; i < I3_H * I3_W; i++) {
         cam[i] = 0;
         for (int j = 0; j < I3_C; j++) {
@@ -350,7 +398,7 @@ void Get_CAM(float *activation, float *cam, int pred, float *weight) {
 }
 
 void save_image(float *feature_scaled, float *cam) {
-    /*            DO NOT MODIFIY            */
+    /*            DO NOT MODIFY            */
     float *output = (float *)malloc(sizeof(float) * 3 * I1_H * I1_W);
     unsigned char *output_bmp = (unsigned char *)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
     unsigned char *output_bmp_resized = (unsigned char *)malloc(sizeof(unsigned char) * 3 * I1_H * 14 * I1_W * 14);
@@ -388,29 +436,4 @@ void save_image(float *feature_scaled, float *cam) {
     free(output);
     free(output_bmp);
     return;
-}
-
-void display_digit(int digit) {
-    // 7-segment 디스플레이에 해당하는 핀 설정
-    int segment_pins[10][7] = {
-        {1, 1, 1, 1, 1, 1, 0},  // 0
-        {0, 1, 1, 0, 0, 0, 0},  // 1
-        {1, 1, 0, 1, 1, 0, 1},  // 2
-        {1, 1, 1, 1, 0, 0, 1},  // 3
-        {0, 1, 1, 0, 0, 1, 1},  // 4
-        {1, 0, 1, 1, 0, 1, 1},  // 5
-        {1, 0, 1, 1, 1, 1, 1},  // 6
-        {1, 1, 1, 0, 0, 0, 0},  // 7
-        {1, 1, 1, 1, 1, 1, 1},  // 8
-        {1, 1, 1, 1, 0, 1, 1}   // 9
-    };
-
-    digitalWrite(PIN_A, segment_pins[digit][0]);
-    digitalWrite(PIN_B, segment_pins[digit][1]);
-    digitalWrite(PIN_C, segment_pins[digit][2]);
-    digitalWrite(PIN_D, segment_pins[digit][3]);
-    digitalWrite(PIN_E, segment_pins[digit][4]);
-    digitalWrite(PIN_F, segment_pins[digit][5]);
-    digitalWrite(PIN_G, segment_pins[digit][6]);
-    digitalWrite(PIN_DP, 0);  // Decimal Point off
 }
