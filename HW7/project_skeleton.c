@@ -70,7 +70,8 @@ void setup_gpio();
 void display_number(int number);
 
 int main(int argc, char* argv[]) {
-    clock_t start1, end1, start2, end2;
+    clock_t start, end;
+    double time_padding, time_conv1, time_relu1, time_conv2, time_relu2, time_fc, total_time;
 
     model net;
     FILE* weights;
@@ -83,8 +84,6 @@ int main(int argc, char* argv[]) {
 
     char* file;
     if (atoi(argv[1]) == 0) {
-        /*          PUT YOUR CODE HERE                      */
-        /*          Serial communication                    */
         system("libcamera-still -e bmp --width 280 --height 280 -t 20000 -o image.bmp");
         file = "image.bmp";
     }
@@ -131,26 +130,46 @@ int main(int argc, char* argv[]) {
     int pred = 0;
     Gray_scale(feature_in, feature_gray);
     Normalized(feature_gray, feature_scaled);
-    /***************      Implement these functions      ********************/
-    start1 = clock();
-    Padding(feature_scaled, feature_padding1, I1_C, I1_H, I1_W);
-    Conv_2d(feature_padding1, feature_conv1_out, I1_C, I1_H + 2, I1_W + 2, I2_C, I2_H, I2_W, CONV1_KERNAL, CONV1_STRIDE, net.conv1_weight, net.conv1_bias);
-    ReLU(feature_conv1_out, I2_C * I2_H * I2_W);
 
+    start = clock();
+    Padding(feature_scaled, feature_padding1, I1_C, I1_H, I1_W);
+    end = clock();
+    time_padding = (double)(end - start) / CLOCKS_PER_US;
+
+    start = clock();
+    Conv_2d(feature_padding1, feature_conv1_out, I1_C, I1_H + 2, I1_W + 2, I2_C, I2_H, I2_W, CONV1_KERNAL, CONV1_STRIDE, net.conv1_weight, net.conv1_bias);
+    end = clock();
+    time_conv1 = (double)(end - start) / CLOCKS_PER_US;
+
+    start = clock();
+    ReLU(feature_conv1_out, I2_C * I2_H * I2_W);
+    end = clock();
+    time_relu1 = (double)(end - start) / CLOCKS_PER_US;
+
+    start = clock();
     Padding(feature_conv1_out, feature_padding2, I2_C, I2_H, I2_W);
     Conv_2d(feature_padding2, feature_conv2_out, I2_C, I2_H + 2, I2_W + 2, I3_C, I3_H, I3_W, CONV2_KERNAL, CONV2_STRIDE, net.conv2_weight, net.conv2_bias);
-    ReLU(feature_conv2_out, I3_C * I3_H * I3_W);
+    end = clock();
+    time_conv2 = (double)(end - start) / CLOCKS_PER_US;
 
+    start = clock();
+    ReLU(feature_conv2_out, I3_C * I3_H * I3_W);
+    end = clock();
+    time_relu2 = (double)(end - start) / CLOCKS_PER_US;
+
+    start = clock();
     Linear(feature_conv2_out, fc_out, net.fc_weight, net.fc_bias);
-    end1 = clock() - start1;
+    end = clock();
+    time_fc = (double)(end - start) / CLOCKS_PER_US;
 
     Log_softmax(fc_out);
 
-    start2 = clock();
+    start = clock();
     pred = Get_pred(fc_out);
     Get_CAM(feature_conv2_out, cam, pred, net.fc_weight);
-    end2 = clock() - start2;
-    /************************************************************************/
+    end = clock();
+    total_time = (double)(end - start) / CLOCKS_PER_US;
+
     save_image(feature_scaled, cam);
 
     setup_gpio();
@@ -161,7 +180,13 @@ int main(int argc, char* argv[]) {
         printf("%2d: %6.3f\n", i, fc_out[i]);
     }
     printf("Prediction: %d\n", pred);
-    printf("Execution time: %9.3lf[us]\n", (double)(end1 + end2) / CLOCKS_PER_US);
+    printf("Padding time: %9.3lf[us]\n", time_padding);
+    printf("Conv1 time: %9.3lf[us]\n", time_conv1);
+    printf("ReLU1 time: %9.3lf[us]\n", time_relu1);
+    printf("Conv2 time: %9.3lf[us]\n", time_conv2);
+    printf("ReLU2 time: %9.3lf[us]\n", time_relu2);
+    printf("FC time: %9.3lf[us]\n", time_fc);
+    printf("Total execution time: %9.3lf[us]\n", total_time);
 
     if (atoi(argv[1]) == 0) {
         free(feature_in);
