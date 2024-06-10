@@ -264,21 +264,21 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                 for (int ic = 0; ic < in_C; ic++) {
                     for (int kh = 0; kh < K; kh++) {
                         int ih = oh * S + kh;
-                        for (int kw = 0; kw < K; kw += 4) {
+                        for (int kw = 0; kw < K; kw++) {
                             int iw = ow * S + kw;
-                            if (iw + 3 < in_W) {
-                                float32x4_t in_value = vld1q_f32(&feature_in[ic * in_H * in_W + ih * in_W + iw]);
+                            if (iw < in_W) {
+                                float32x4_t in_value;
+                                if (iw + 3 < in_W) {
+                                    in_value = vld1q_f32(&feature_in[ic * in_H * in_W + ih * in_W + iw]);
+                                } else {
+                                    float temp_in[4] = {0, 0, 0, 0};
+                                    for (int t = 0; t < in_W - iw; t++) {
+                                        temp_in[t] = feature_in[ic * in_H * in_W + ih * in_W + iw + t];
+                                    }
+                                    in_value = vld1q_f32(temp_in);
+                                }
                                 float32x4_t weight_value = vld1q_f32(&weight[oc * in_C * K * K + ic * K * K + kh * K + kw]);
                                 partial_sum = vmlaq_f32(partial_sum, in_value, weight_value);
-                            } else {
-                                // Handle boundary cases manually
-                                for (int k = 0; k < 4; k++) {
-                                    if (iw + k < in_W) {
-                                        float in_val = feature_in[ic * in_H * in_W + ih * in_W + iw + k];
-                                        float weight_val = weight[oc * in_C * K * K + ic * K * K + kh * K + kw + k];
-                                        partial_sum = vsetq_lane_f32(vgetq_lane_f32(partial_sum, k) + in_val * weight_val, partial_sum, k);
-                                    }
-                                }
                             }
                         }
                     }
