@@ -2,6 +2,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 
+#include <arm_neon.h> // NEON 라이브러리 추가
+
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -246,18 +248,23 @@ void Normalized(unsigned char* feature_in, float* feature_out) {
 }
 
 void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
-    /*          PUT YOUR CODE HERE          */
-    // Padding input : float *feature_in
-    // Padding output: float *feature_out
+    /* NEON을 사용하여 zero padding 구현 */
+    float32x4_t zero_vector = vdupq_n_f32(0.0); // 0으로 구성된 벡터 생성
+
     for (int c = 0; c < C; c++) {
-        for (int h = 0; h < H + 2; h++) {
-            for (int w = 0; w < W + 2; w++) {
-                if (h == 0 || h == H + 1 || w == 0 || w == W + 1) {
-                    feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w] = 0;
-                }
-                else {
-                    feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w] = feature_in[c * H * W + (h - 1) * W + (w - 1)];
-                }
+        // 상단과 하단 패딩 (0번째 행과 29번째 행)
+        for (int i = 0; i < (W + 2) / 4; i++) {
+            vst1q_f32(&feature_out[c * (H + 2) * (W + 2) + 0 * (W + 2) + i * 4], zero_vector); // 0번째 행
+            vst1q_f32(&feature_out[c * (H + 2) * (W + 2) + (H + 1) * (W + 2) + i * 4], zero_vector); // 29번째 행
+        }
+
+        // 중앙 패딩 (1번째 행부터 28번째 행)
+        for (int h = 1; h <= H; h++) {
+            feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + 0] = 0; // 0번째 열
+            feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + (W + 1)] = 0; // 29번째 열
+            for (int w = 1; w <= W; w += 4) {
+                float32x4_t neon_in = vld1q_f32(&feature_in[c * H * W + (h - 1) * W + (w - 1)]);
+                vst1q_f32(&feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w], neon_in);
             }
         }
     }
