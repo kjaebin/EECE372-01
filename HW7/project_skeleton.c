@@ -7,6 +7,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <errno.h>
+#include <string.h>
+#include <wiringPi.h>
 
 #include "stb_image.h"
 #include "stb_image_resize2.h"
@@ -38,6 +41,15 @@
 #define FC_IN (I2_H * I2_W)
 #define FC_OUT CLASS
 
+#define PIN_A 22
+#define PIN_B 21
+#define PIN_C 28
+#define PIN_D 25
+#define PIN_E 29
+#define PIN_F 23
+#define PIN_G 24
+#define PIN_DP 27
+
 typedef struct _model {
     float conv1_weight[I2_C * I1_C * CONV1_KERNAL * CONV1_KERNAL];
     float conv1_bias[I2_C];
@@ -61,6 +73,7 @@ void Log_softmax(float *activation);
 int Get_pred(float *activation);
 void Get_CAM(float *activation, float *cam, int pred, float *weight);
 void save_image(float *feature_scaled, float *cam);
+void display_digit(int digit);
 
 int main(int argc, char *argv[]) {
     clock_t start1, end1, start2, end2;
@@ -69,10 +82,15 @@ int main(int argc, char *argv[]) {
     FILE *weights;
     weights = fopen("./weights.bin", "rb");
     if (weights == NULL) {
-        printf("Error opening weights file.\n");
+        printf("Error opening weights file: %s\n", strerror(errno));
         return 1;
     }
-    fread(&net, sizeof(model), 1, weights);
+    size_t result = fread(&net, sizeof(model), 1, weights);
+    if (result != 1) {
+        printf("Error reading weights file: %s\n", strerror(errno));
+        fclose(weights);
+        return 1;
+    }
     fclose(weights);
 
     char *file;
@@ -158,7 +176,21 @@ int main(int argc, char *argv[]) {
     save_image(feature_scaled, cam);
 
     /*          PUT YOUR CODE HERE                      */
-    /*          7-segment                               */
+    /*          7-segment 디스플레이 초기화 및 예측 결과 표시 */
+    if (wiringPiSetup() == -1) { // library include 실패시 종료
+        return 1;
+    }
+
+    pinMode(PIN_A, OUTPUT);
+    pinMode(PIN_B, OUTPUT);
+    pinMode(PIN_C, OUTPUT);
+    pinMode(PIN_D, OUTPUT);
+    pinMode(PIN_E, OUTPUT);
+    pinMode(PIN_F, OUTPUT);
+    pinMode(PIN_G, OUTPUT);
+    pinMode(PIN_DP, OUTPUT);
+
+    display_digit(pred);
 
     printf("Log softmax value\n");
     for (int i = 0; i < CLASS; i++) {
@@ -201,6 +233,7 @@ void Gray_scale(unsigned char *feature_in, unsigned char *feature_out) {
             feature_out[I1_W * h + w] = sum / 3;
         }
     }
+
     return;
 }
 
@@ -209,6 +242,7 @@ void Normalized(unsigned char *feature_in, float *feature_out) {
     for (int i = 0; i < I1_H * I1_W; i++) {
         feature_out[i] = ((float)feature_in[i]) / 255.0;
     }
+
     return;
 }
 
@@ -354,4 +388,29 @@ void save_image(float *feature_scaled, float *cam) {
     free(output);
     free(output_bmp);
     return;
+}
+
+void display_digit(int digit) {
+    // 7-segment 디스플레이에 해당하는 핀 설정
+    int segment_pins[10][7] = {
+        {1, 1, 1, 1, 1, 1, 0},  // 0
+        {0, 1, 1, 0, 0, 0, 0},  // 1
+        {1, 1, 0, 1, 1, 0, 1},  // 2
+        {1, 1, 1, 1, 0, 0, 1},  // 3
+        {0, 1, 1, 0, 0, 1, 1},  // 4
+        {1, 0, 1, 1, 0, 1, 1},  // 5
+        {1, 0, 1, 1, 1, 1, 1},  // 6
+        {1, 1, 1, 0, 0, 0, 0},  // 7
+        {1, 1, 1, 1, 1, 1, 1},  // 8
+        {1, 1, 1, 1, 0, 1, 1}   // 9
+    };
+
+    digitalWrite(PIN_A, segment_pins[digit][0]);
+    digitalWrite(PIN_B, segment_pins[digit][1]);
+    digitalWrite(PIN_C, segment_pins[digit][2]);
+    digitalWrite(PIN_D, segment_pins[digit][3]);
+    digitalWrite(PIN_E, segment_pins[digit][4]);
+    digitalWrite(PIN_F, segment_pins[digit][5]);
+    digitalWrite(PIN_G, segment_pins[digit][6]);
+    digitalWrite(PIN_DP, 0);  // Decimal Point off
 }
