@@ -1,214 +1,66 @@
-#include "stb_image.h"
-#include "stb_image_write.h"
-#include "stb_image_resize2.h"
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
 
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <math.h>
 #include <time.h>
-#include <wiringPi.h>
-#include <sys/types.h>
-#include <termios.h>
-#include <fcntl.h>
-#include <errno.h>
 
-#define MNIST_IMAGE_WIDTH 28
-#define MNIST_IMAGE_HEIGHT 28
-#define MNIST_IMAGE_SIZE MNIST_IMAGE_WIDTH * MNIST_IMAGE_HEIGHT
-#define MNIST_LABELS 10
-#define CHANNEL_NUMBER 32
-#define CHANNEL_WIDTH 3
-#define CHANNEL_HEIGHT 3
-#define PIXEL_SCALE(x) (((float) (x)) / 255.0f)
-#define g 24
-#define f 23
-#define a 22
-#define b 21
-#define e 29
-#define d 25
-#define c_ 28
-#define DP 27
-#define BAUDRATE B1000000
+#include "stb_image.h"
+#include "stb_image_resize2.h"
+#include "stb_image_write.h"
 
-#define I1_C 1  // Input layer channels
-#define I1_H 28 // Input layer height
-#define I1_W 28 // Input layer width
+#define CLOCKS_PER_US ((double)CLOCKS_PER_SEC / 1000000)
 
-#define I2_C 16 // First conv layer output channels
-#define I2_H 14 // First conv layer output height
-#define I2_W 14 // First conv layer output width
+#define CLASS 10
 
-#define I3_C 32 // Second conv layer output channels
-#define I3_H 7  // Second conv layer output height
-#define I3_W 7  // Second conv layer output width
+// Input dim
+#define I1_C 1
+#define I1_H 28
+#define I1_W 28
 
-#define CONV1_KERNAL 3  // First conv layer kernel size
-#define CONV1_STRIDE 2  // First conv layer stride
+// Conv1 out dim
+#define I2_C 16
+#define I2_H 14
+#define I2_W 14
 
-#define CONV2_KERNAL 3  // Second conv layer kernel size
-#define CONV2_STRIDE 2  // Second conv layer stride
+// Conv2 out dim
+#define I3_C 1
+#define I3_H 14
+#define I3_W 14
 
-#define CLASS 10 // Number of classes
+#define CONV1_KERNAL 3
+#define CONV1_STRIDE 2
+#define CONV2_KERNAL 3
+#define CONV2_STRIDE 1
+#define FC_IN (I2_H * I2_W)
+#define FC_OUT CLASS
 
-typedef struct {
+typedef struct _model {
     float conv1_weight[I2_C * I1_C * CONV1_KERNAL * CONV1_KERNAL];
     float conv1_bias[I2_C];
+
     float conv2_weight[I3_C * I2_C * CONV2_KERNAL * CONV2_KERNAL];
     float conv2_bias[I3_C];
-    float fc_weight[CLASS * I3_C * I3_H * I3_W];
-    float fc_bias[CLASS];
+
+    float fc_weight[FC_OUT * FC_IN];
+    float fc_bias[FC_OUT];
 } model;
 
-void resize_280_to_28(unsigned char* out, unsigned char* in) {
-    int x, y, c;
-    for (y = 0; y < 28; y++) {
-        for (x = 0; x < 28; x++) {
-            for (c = 0; c < 3; c++) {
-                out[y * 28 * 3 + x * 3 + c] = in[y * 10 * 280 * 3 + x * 10 * 3 + c];
-            }
-        }
-    }
-}
+void resize_280_to_28(unsigned char *in, unsigned char *out);
+void Gray_scale(unsigned char *feature_in, unsigned char *feature_out);
+void Normalized(unsigned char *feature_in, float *feature_out);
 
-void RGB_to_Grayscale(uint8_t out[][MNIST_IMAGE_WIDTH], unsigned char* in) {
-    int x, y, c;
-    int sum = 0;
-    for (y = 0; y < 28; y++) {
-        for (x = 0; x < 28; x++) {
-            sum = 0;
-            for (c = 0; c < 3; c++) {
-                sum += in[y * 28 * 3 + x * 3 + c];
-            }
-            for (c = 0; c < 3; c++) {
-                in[y * 28 * 3 + x * 3 + c] = 255 - sum / 3;
-            }
-        }
-    }
-    for (y = 0; y < 28; y++) {
-        for (x = 0; x < 28; x++) {
-            sum = 0;
-            for (c = 0; c < 3; c++) {
-                sum += in[y * 28 * 3 + x * 3 + c];
-            }
-            if (sum / 3 < 150)
-                out[y][x] = 0;
-            else
-                out[y][x] = sum / 3;
-        }
-    }
-}
-
-void pixel_scale(float out[][MNIST_IMAGE_WIDTH], uint8_t in[][MNIST_IMAGE_WIDTH]) {
-    int i;
-    for (i = 0; i < 28 * 28; i++) {
-        out[i / 28][i % 28] = PIXEL_SCALE(in[i / 28][i % 28]);
-    }
-}
-
-void Padding(float *feature_in, float *feature_out, int C, int H, int W) {
-    for (int c = 0; c < C; c++) {
-        for (int h = 0; h < H + 2; h++) {
-            for (int w = 0; w < W + 2; w++) {
-                if (h == 0 || h == H + 1 || w == 0 || w == W + 1) {
-                    feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w] = 0;
-                } else {
-                    feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w] = feature_in[c * H * W + (h - 1) * W + (w - 1)];
-                }
-            }
-        }
-    }
-}
-
-void Conv_2d(float *feature_in, float *feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float *weight, float *bias) {
-    for (int oc = 0; oc < out_C; oc++) {
-        for (int oh = 0; oh < out_H; oh++) {
-            for (int ow = 0; ow < out_W; ow++) {
-                float sum = 0;
-                for (int ic = 0; ic < in_C; ic++) {
-                    for (int kh = 0; kh < K; kh++) {
-                        for (int kw = 0; kw < K; kw++) {
-                            int ih = oh * S + kh;
-                            int iw = ow * S + kw;
-                            sum += feature_in[ic * in_H * in_W + ih * in_W + iw] * weight[oc * in_C * K * K + ic * K * K + kh * K + kw];
-                        }
-                    }
-                }
-                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
-            }
-        }
-    }
-}
-
-void ReLU(float *feature_in, int elem_num) {
-    for (int i = 0; i < elem_num; i++) {
-        if (feature_in[i] < 0) {
-            feature_in[i] = 0;
-        }
-    }
-}
-
-void Linear(float *feature_in, float *feature_out, float *weight, float *bias) {
-    for (int i = 0; i < CLASS; i++) {
-        float sum = 0;
-        for (int j = 0; j < I3_C * I3_H * I3_W; j++) {
-            sum += feature_in[j] * weight[i * I3_C * I3_H * I3_W + j];
-        }
-        feature_out[i] = sum + bias[i];
-    }
-}
-
-int Get_pred(float *activation) {
-    int pred = 0;
-    float max_val = activation[0];
-    for (int i = 1; i < CLASS; i++) {
-        if (activation[i] > max_val) {
-            max_val = activation[i];
-            pred = i;
-        }
-    }
-    return pred;
-}
-
-void Get_CAM(float *activation, float *cam, int pred, float *weight) {
-    for (int i = 0; i < I3_H * I3_W; i++) {
-        cam[i] = 0;
-        for (int j = 0; j < I3_C; j++) {
-            cam[i] += activation[j * I3_H * I3_W + i] * weight[pred * I3_C * I3_H * I3_W + j * I3_H * I3_W + i];
-        }
-    }
-}
-
-void Log_softmax(float *fc_out) {
-    float max = fc_out[0];
-    for (int i = 1; i < CLASS; i++) {
-        if (fc_out[i] > max) {
-            max = fc_out[i];
-        }
-    }
-    float sum = 0.0f;
-    for (int i = 0; i < CLASS; i++) {
-        fc_out[i] = exp(fc_out[i] - max);
-        sum += fc_out[i];
-    }
-    for (int i = 0; i < CLASS; i++) {
-        fc_out[i] = log(fc_out[i] / sum);
-    }
-}
-
-void save_image(float *feature_scaled, float *cam) {
-    unsigned char output[28 * 28 * 3];
-    for (int i = 0; i < 28 * 28; i++) {
-        int val = (int)(cam[i] * 255);
-        if (val < 0) val = 0;
-        if (val > 255) val = 255;
-        output[3 * i] = val;
-        output[3 * i + 1] = val;
-        output[3 * i + 2] = val;
-    }
-    stbi_write_bmp("output.bmp", 28, 28, 3, output);
-}
+void Padding(float *feature_in, float *feature_out, int C, int H, int W);
+void Conv_2d(float *feature_in, float *feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float *weight, float *bias);
+void ReLU(float *feature_in, int elem_num);
+void Linear(float *feature_in, float *feature_out, float *weight, float *bias);
+void Log_softmax(float *activation);
+int Get_pred(float *activation);
+void Get_CAM(float *activation, float *cam, int pred, float *weight);
+void save_image(float *feature_scaled, float *cam);
 
 int main(int argc, char *argv[]) {
     clock_t start1, end1, start2, end2;
@@ -220,14 +72,18 @@ int main(int argc, char *argv[]) {
 
     char *file;
     if (atoi(argv[1]) == 0) {
-        // 카메라 모드: libcamera-still 명령어를 사용하여 BMP 이미지 캡처
+        /*          PUT YOUR CODE HERE                      */
+        /*          Serial communication                    */
         system("libcamera-still -e bmp --width 280 --height 280 -t 20000 -o image.bmp");
         file = "image.bmp";
-    } else if (atoi(argv[1]) == 1) {
+    }
+    else if (atoi(argv[1]) == 1) {
         file = "example_1.bmp";
-    } else if (atoi(argv[1]) == 2) {
+    }
+    else if (atoi(argv[1]) == 2) {
         file = "example_2.bmp";
-    } else {
+    }
+    else {
         printf("Wrong Input!\n");
         exit(1);
     }
@@ -248,15 +104,15 @@ int main(int argc, char *argv[]) {
         feature_resize = stbi_load(file, &width, &height, &channels, 3);
         feature_in = (unsigned char *)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
         resize_280_to_28(feature_resize, feature_in);
-    } else {
+    }
+    else {
         feature_in = stbi_load(file, &width, &height, &channels, 3);
     }
 
     int pred = 0;
     Gray_scale(feature_in, feature_gray);
     Normalized(feature_gray, feature_scaled);
-
-    // 신경망 추론 수행
+    /***************      Implement these functions      ********************/
     start1 = clock();
     Padding(feature_scaled, feature_padding1, I1_C, I1_H, I1_W);
     Conv_2d(feature_padding1, feature_conv1_out, I1_C, I1_H + 2, I1_W + 2, I2_C, I2_H, I2_W, CONV1_KERNAL, CONV1_STRIDE, net.conv1_weight, net.conv1_bias);
@@ -275,148 +131,183 @@ int main(int argc, char *argv[]) {
     pred = Get_pred(fc_out);
     Get_CAM(feature_conv2_out, cam, pred, net.fc_weight);
     end2 = clock() - start2;
-
+    /************************************************************************/
     save_image(feature_scaled, cam);
 
-    // 7-세그먼트 디스플레이
-    if (wiringPiSetup() == -1) {
-        return 1;
-    }
-
-    pinMode(g, OUTPUT);
-    pinMode(f, OUTPUT);
-    pinMode(a, OUTPUT);
-    pinMode(b, OUTPUT);
-    pinMode(e, OUTPUT);
-    pinMode(d, OUTPUT);
-    pinMode(c_, OUTPUT);
-    pinMode(DP, OUTPUT);
-
-    digitalWrite(a, 0);
-    digitalWrite(b, 0);
-    digitalWrite(c_, 0);
-    digitalWrite(d, 0);
-    digitalWrite(e, 0);
-    digitalWrite(f, 0);
-    digitalWrite(g, 0);
-    digitalWrite(DP, 0);
-
-    switch (pred) {
-    case 0:
-        digitalWrite(a, 1);
-        digitalWrite(b, 1);
-        digitalWrite(c_, 1);
-        digitalWrite(d, 1);
-        digitalWrite(e, 1);
-        digitalWrite(f, 1);
-        digitalWrite(g, 0);
-        digitalWrite(DP, 0);
-        break;
-    case 1:
-        digitalWrite(a, 0);
-        digitalWrite(b, 1);
-        digitalWrite(c_, 1);
-        digitalWrite(d, 0);
-        digitalWrite(e, 0);
-        digitalWrite(f, 0);
-        digitalWrite(g, 0);
-        digitalWrite(DP, 0);
-        break;
-    case 2:
-        digitalWrite(a, 1);
-        digitalWrite(b, 1);
-        digitalWrite(c_, 0);
-        digitalWrite(d, 1);
-        digitalWrite(e, 1);
-        digitalWrite(f, 0);
-        digitalWrite(g, 1);
-        digitalWrite(DP, 0);
-        break;
-    case 3:
-        digitalWrite(a, 1);
-        digitalWrite(b, 1);
-        digitalWrite(c_, 1);
-        digitalWrite(d, 1);
-        digitalWrite(e, 0);
-        digitalWrite(f, 0);
-        digitalWrite(g, 1);
-        digitalWrite(DP, 0);
-        break;
-    case 4:
-        digitalWrite(a, 0);
-        digitalWrite(b, 1);
-        digitalWrite(c_, 1);
-        digitalWrite(d, 0);
-        digitalWrite(e, 0);
-        digitalWrite(f, 1);
-        digitalWrite(g, 1);
-        digitalWrite(DP, 0);
-        break;
-    case 5:
-        digitalWrite(a, 1);
-        digitalWrite(b, 0);
-        digitalWrite(c_, 1);
-        digitalWrite(d, 1);
-        digitalWrite(e, 0);
-        digitalWrite(f, 1);
-        digitalWrite(g, 1);
-        digitalWrite(DP, 0);
-        break;
-    case 6:
-        digitalWrite(a, 1);
-        digitalWrite(b, 0);
-        digitalWrite(c_, 1);
-        digitalWrite(d, 1);
-        digitalWrite(e, 1);
-        digitalWrite(f, 1);
-        digitalWrite(g, 1);
-        digitalWrite(DP, 0);
-        break;
-    case 7:
-        digitalWrite(a, 1);
-        digitalWrite(b, 1);
-        digitalWrite(c_, 1);
-        digitalWrite(d, 0);
-        digitalWrite(e, 0);
-        digitalWrite(f, 1);
-        digitalWrite(g, 0);
-        digitalWrite(DP, 0);
-        break;
-    case 8:
-        digitalWrite(a, 1);
-        digitalWrite(b, 1);
-        digitalWrite(c_, 1);
-        digitalWrite(d, 1);
-        digitalWrite(e, 1);
-        digitalWrite(f, 1);
-        digitalWrite(g, 1);
-        digitalWrite(DP, 0);
-        break;
-    case 9:
-        digitalWrite(a, 1);
-        digitalWrite(b, 1);
-        digitalWrite(c_, 1);
-        digitalWrite(d, 1);
-        digitalWrite(e, 0);
-        digitalWrite(f, 1);
-        digitalWrite(g, 1);
-        digitalWrite(DP, 0);
-        break;
-    }
+    /*          PUT YOUR CODE HERE                      */
+    /*          7-segment                               */
 
     printf("Log softmax value\n");
     for (int i = 0; i < CLASS; i++) {
         printf("%2d: %6.3f\n", i, fc_out[i]);
     }
     printf("Prediction: %d\n", pred);
-    printf("Execution time: %9.3lf[us]\n", (double)(end1 + end2) / CLOCKS_PER_SEC);
+    printf("Execution time: %9.3lf[us]\n", (double)(end1 + end2) / CLOCKS_PER_US);
 
     fclose(weights);
     if (atoi(argv[1]) == 0) {
         free(feature_in);
         stbi_image_free(feature_resize);
-    } else {
+    }
+    else {
         stbi_image_free(feature_in);
     }
     return 0;
+}
+
+void resize_280_to_28(unsigned char *in, unsigned char *out) {
+    /*            DO NOT MODIFIY            */
+    int x, y, c;
+    for (y = 0; y < 28; y++) {
+        for (x = 0; x < 28; x++) {
+            for (c = 0; c < 3; c++) {
+                out[y * 28 * 3 + x * 3 + c] = in[y * 10 * 280 * 3 + x * 10 * 3 + c];
+            }
+        }
+    }
+    return;
+}
+
+void Gray_scale(unsigned char *feature_in, unsigned char *feature_out) {
+    /*            DO NOT MODIFIY            */
+    for (int h = 0; h < I1_H; h++) {
+        for (int w = 0; w < I1_W; w++) {
+            int sum = 0;
+            for (int c = 0; c < 3; c++) {
+                sum += feature_in[I1_H * 3 * h + 3 * w + c];
+            }
+            feature_out[I1_W * h + w] = sum / 3;
+        }
+    }
+
+    return;
+}
+
+void Normalized(unsigned char *feature_in, float *feature_out) {
+    /*            DO NOT MODIFIY            */
+    for (int i = 0; i < I1_H * I1_W; i++) {
+        feature_out[i] = ((float)feature_in[i]) / 255.0;
+    }
+
+    return;
+}
+
+void Padding(float *feature_in, float *feature_out, int C, int H, int W) {
+    /*          PUT YOUR CODE HERE          */
+    for (int c = 0; c < C; c++) {
+        for (int h = 0; h < H + 2; h++) {
+            for (int w = 0; w < W + 2; w++) {
+                if (h == 0 || h == H + 1 || w == 0 || w == W + 1) {
+                    feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w] = 0;
+                } else {
+                    feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w] = feature_in[c * H * W + (h - 1) * W + (w - 1)];
+                }
+            }
+        }
+    }
+}
+
+void Conv_2d(float *feature_in, float *feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float *weight, float *bias) {
+    /*          PUT YOUR CODE HERE          */
+    for (int oc = 0; oc < out_C; oc++) {
+        for (int oh = 0; oh < out_H; oh++) {
+            for (int ow = 0; ow < out_W; ow++) {
+                float sum = 0;
+                for (int ic = 0; ic < in_C; ic++) {
+                    for (int kh = 0; kh < K; kh++) {
+                        for (int kw = 0; kw < K; kw++) {
+                            int ih = oh * S + kh;
+                            int iw = ow * S + kw;
+                            sum += feature_in[ic * in_H * in_W + ih * in_W + iw] * weight[oc * in_C * K * K + ic * K * K + kh * K + kw];
+                        }
+                    }
+                }
+                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
+            }
+        }
+    }
+}
+
+void ReLU(float *feature_in, int elem_num) {
+    /*          PUT YOUR CODE HERE          */
+    for (int i = 0; i < elem_num; i++) {
+        if (feature_in[i] < 0) {
+            feature_in[i] = 0;
+        }
+    }
+}
+
+void Linear(float *feature_in, float *feature_out, float *weight, float *bias) {
+    /*          PUT YOUR CODE HERE          */
+    for (int i = 0; i < CLASS; i++) {
+        float sum = 0;
+        for (int j = 0; j < I3_C * I3_H * I3_W; j++) {
+            sum += feature_in[j] * weight[i * I3_C * I3_H * I3_W + j];
+        }
+        feature_out[i] = sum + bias[i];
+    }
+}
+
+int Get_pred(float *activation) {
+    /*          PUT YOUR CODE HERE          */
+    int pred = 0;
+    float max_val = activation[0];
+    for (int i = 1; i < CLASS; i++) {
+        if (activation[i] > max_val) {
+            max_val = activation[i];
+            pred = i;
+        }
+    }
+    return pred;
+}
+
+void Get_CAM(float *activation, float *cam, int pred, float *weight) {
+    /*          PUT YOUR CODE HERE          */
+    for (int i = 0; i < I3_H * I3_W; i++) {
+        cam[i] = 0;
+        for (int j = 0; j < I3_C; j++) {
+            cam[i] += activation[i + j * I3_H * I3_W] * weight[pred * I3_C * I3_H * I3_W + i + j * I3_H * I3_W];
+        }
+    }
+}
+
+void save_image(float *feature_scaled, float *cam) {
+    /*            DO NOT MODIFIY            */
+    float *output = (float *)malloc(sizeof(float) * 3 * I1_H * I1_W);
+    unsigned char *output_bmp = (unsigned char *)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
+    unsigned char *output_bmp_resized = (unsigned char *)malloc(sizeof(unsigned char) * 3 * I1_H * 14 * I1_W * 14);
+
+    float min = cam[0];
+    float max = cam[0];
+    for (int i = 1; i < I3_H * I3_W; i++) {
+        if (cam[i] < min) {
+            min = cam[i];
+        }
+        if (cam[i] > max) {
+            max = cam[i];
+        }
+    }
+
+    for (int h = 0; h < I1_H; h++) {
+        for (int w = 0; w < I1_W; w++) {
+            for (int c = 0; c < 3; c++) {
+                output[I1_H * I1_W * c + I1_W * h + w] = (cam[I3_W * (h >> 1) + (w >> 1)] - min) / (max - min);
+            }
+        }
+    }
+
+    for (int h = 0; h < I1_H; h++) {
+        for (int w = 0; w < I1_W; w++) {
+            for (int c = 0; c < 3; c++) {
+                output_bmp[I1_H * 3 * h + 3 * w + c] = (output[I1_H * I1_W * c + I1_W * h + w]) * 255;
+            }
+        }
+    }
+
+    stbir_resize_uint8_linear(output_bmp, I1_H, I1_W, 0, output_bmp_resized, I1_H * 14, I1_W * 14, 0, 3);
+    stbi_write_bmp("Activation_map.bmp", I1_W * 14, I1_H * 14, 3, output_bmp_resized);
+
+    free(output);
+    free(output_bmp);
+    return;
 }
