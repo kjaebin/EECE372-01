@@ -232,23 +232,24 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
 }
 
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
-    /*          PUT YOUR CODE HERE          */
-    // Conv_2d input : float *feature_in
-    // Conv_2d output: float *feature_out
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float sum = 0;
+                float32x4_t partial_sum = vdupq_n_f32(0.0);
                 for (int ic = 0; ic < in_C; ic++) {
                     for (int kh = 0; kh < K; kh++) {
-                        for (int kw = 0; kw < K; kw++) {
-                            int ih = oh * S + kh;
+                        int ih = oh * S + kh;
+                        for (int kw = 0; kw < K; kw += 4) {
                             int iw = ow * S + kw;
-                            sum += feature_in[ic * in_H * in_W + ih * in_W + iw] * weight[oc * in_C * K * K + ic * K * K + kh * K + kw];
+                            float32x4_t in_value = vld1q_f32(&feature_in[ic * in_H * in_W + ih * in_W + iw]);
+                            float32x4_t weight_value = vld1q_f32(&weight[oc * in_C * K * K + ic * K * K + kh * K + kw]);
+                            partial_sum = vmlaq_f32(partial_sum, in_value, weight_value);
                         }
                     }
                 }
-                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
+                float sum[4];
+                vst1q_f32(sum, partial_sum);
+                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum[0] + sum[1] + sum[2] + sum[3] + bias[oc];
             }
         }
     }
