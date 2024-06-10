@@ -276,7 +276,7 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float32x4_t partial_sum = vdupq_n_f32(0.0f);
+                float32x4_t partial_sum = vdupq_n_f32(0.0f); // Initialize partial_sum inside the loop
                 for (int ic = 0; ic < in_C; ic++) {
                     for (int kh = 0; kh < K; kh++) {
                         int ih = oh * S + kh;
@@ -303,6 +303,9 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                 float sum[4];
                 vst1q_f32(sum, partial_sum);
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum[0] + sum[1] + sum[2] + sum[3] + bias[oc];
+                if (oc == 0 && oh == 0 && ow < 10) { // 일부 값만 출력
+                    printf("partial_sum: [%f, %f, %f, %f], feature_out[%d]: %f\n", sum[0], sum[1], sum[2], sum[3], ow, feature_out[oc * out_H * out_W + oh * out_W + ow]);
+                }
             }
         }
     }
