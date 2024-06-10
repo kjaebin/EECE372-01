@@ -260,17 +260,42 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float sum = 0.0;
+                float32x4_t partial_sum = vdupq_n_f32(0.0);
                 for (int ic = 0; ic < in_C; ic++) {
                     for (int kh = 0; kh < K; kh++) {
-                        for (int kw = 0; kw < K; kw++) {
+                        for (int kw = 0; kw < K; kw += 4) {
                             int ih = oh * S + kh;
                             int iw = ow * S + kw;
-                            sum += feature_in[ic * in_H * in_W + ih * in_W + iw] * weight[oc * in_C * K * K + ic * K * K + kh * K + kw];
+                            
+                            float32x4_t in_value;
+                            if (kw + 4 <= K) {
+                                in_value = vld1q_f32(&feature_in[ic * in_H * in_W + ih * in_W + iw]);
+                            } else {
+                                float in_temp[4] = {0};
+                                for (int i = 0; i < K - kw; i++) {
+                                    in_temp[i] = feature_in[ic * in_H * in_W + ih * in_W + iw + i];
+                                }
+                                in_value = vld1q_f32(in_temp);
+                            }
+
+                            float32x4_t weight_value;
+                            if (kw + 4 <= K) {
+                                weight_value = vld1q_f32(&weight[oc * in_C * K * K + ic * K * K + kh * K + kw]);
+                            } else {
+                                float weight_temp[4] = {0};
+                                for (int i = 0; i < K - kw; i++) {
+                                    weight_temp[i] = weight[oc * in_C * K * K + ic * K * K + kh * K + kw + i];
+                                }
+                                weight_value = vld1q_f32(weight_temp);
+                            }
+
+                            partial_sum = vmlaq_f32(partial_sum, in_value, weight_value);
                         }
                     }
                 }
-                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
+                float sum[4];
+                vst1q_f32(sum, partial_sum);
+                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum[0] + sum[1] + sum[2] + sum[3] + bias[oc];
             }
         }
     }
