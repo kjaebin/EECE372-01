@@ -32,12 +32,34 @@
 #define DP 27
 #define BAUDRATE B1000000
 
-typedef struct neural_network_t_ {
-    float conv_bias[CHANNEL_NUMBER];
-    float conv_weight[CHANNEL_NUMBER][CHANNEL_HEIGHT][CHANNEL_WIDTH];
-    float fc_bias[MNIST_LABELS];
-    float fc_weight[MNIST_LABELS][MNIST_IMAGE_WIDTH * MNIST_IMAGE_HEIGHT * CHANNEL_NUMBER];
-} neural_network_t;
+#define I1_C 1  // Input layer channels
+#define I1_H 28 // Input layer height
+#define I1_W 28 // Input layer width
+
+#define I2_C 16 // First conv layer output channels
+#define I2_H 14 // First conv layer output height
+#define I2_W 14 // First conv layer output width
+
+#define I3_C 32 // Second conv layer output channels
+#define I3_H 7  // Second conv layer output height
+#define I3_W 7  // Second conv layer output width
+
+#define CONV1_KERNAL 3  // First conv layer kernel size
+#define CONV1_STRIDE 2  // First conv layer stride
+
+#define CONV2_KERNAL 3  // Second conv layer kernel size
+#define CONV2_STRIDE 2  // Second conv layer stride
+
+#define CLASS 10 // Number of classes
+
+typedef struct {
+    float conv1_weight[I2_C * I1_C * CONV1_KERNAL * CONV1_KERNAL];
+    float conv1_bias[I2_C];
+    float conv2_weight[I3_C * I2_C * CONV2_KERNAL * CONV2_KERNAL];
+    float conv2_bias[I3_C];
+    float fc_weight[CLASS * I3_C * I3_H * I3_W];
+    float fc_bias[CLASS];
+} model;
 
 void resize_280_to_28(unsigned char* out, unsigned char* in) {
     int x, y, c;
@@ -128,7 +150,7 @@ void ReLU(float *feature_in, int elem_num) {
 }
 
 void Linear(float *feature_in, float *feature_out, float *weight, float *bias) {
-    for (int i = 0; i < MNIST_LABELS; i++) {
+    for (int i = 0; i < CLASS; i++) {
         float sum = 0;
         for (int j = 0; j < I3_C * I3_H * I3_W; j++) {
             sum += feature_in[j] * weight[i * I3_C * I3_H * I3_W + j];
@@ -140,7 +162,7 @@ void Linear(float *feature_in, float *feature_out, float *weight, float *bias) {
 int Get_pred(float *activation) {
     int pred = 0;
     float max_val = activation[0];
-    for (int i = 1; i < MNIST_LABELS; i++) {
+    for (int i = 1; i < CLASS; i++) {
         if (activation[i] > max_val) {
             max_val = activation[i];
             pred = i;
@@ -156,6 +178,36 @@ void Get_CAM(float *activation, float *cam, int pred, float *weight) {
             cam[i] += activation[j * I3_H * I3_W + i] * weight[pred * I3_C * I3_H * I3_W + j * I3_H * I3_W + i];
         }
     }
+}
+
+void Log_softmax(float *fc_out) {
+    float max = fc_out[0];
+    for (int i = 1; i < CLASS; i++) {
+        if (fc_out[i] > max) {
+            max = fc_out[i];
+        }
+    }
+    float sum = 0.0f;
+    for (int i = 0; i < CLASS; i++) {
+        fc_out[i] = exp(fc_out[i] - max);
+        sum += fc_out[i];
+    }
+    for (int i = 0; i < CLASS; i++) {
+        fc_out[i] = log(fc_out[i] / sum);
+    }
+}
+
+void save_image(float *feature_scaled, float *cam) {
+    unsigned char output[28 * 28 * 3];
+    for (int i = 0; i < 28 * 28; i++) {
+        int val = (int)(cam[i] * 255);
+        if (val < 0) val = 0;
+        if (val > 255) val = 255;
+        output[3 * i] = val;
+        output[3 * i + 1] = val;
+        output[3 * i + 2] = val;
+    }
+    stbi_write_bmp("output.bmp", 28, 28, 3, output);
 }
 
 int main(int argc, char *argv[]) {
@@ -353,11 +405,11 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Log softmax value\n");
-    for (int i = 0; i < MNIST_LABELS; i++) {
+    for (int i = 0; i < CLASS; i++) {
         printf("%2d: %6.3f\n", i, fc_out[i]);
     }
     printf("Prediction: %d\n", pred);
-    printf("Execution time: %9.3lf[us]\n", (double)(end1 + end2) / CLOCKS_PER_US);
+    printf("Execution time: %9.3lf[us]\n", (double)(end1 + end2) / CLOCKS_PER_SEC);
 
     fclose(weights);
     if (atoi(argv[1]) == 0) {
