@@ -49,28 +49,28 @@ typedef struct _model {
     float fc_bias[FC_OUT];
 } model;
 
-void resize_280_to_28(unsigned char *in, unsigned char *out);
-void Gray_scale(unsigned char *feature_in, unsigned char *feature_out);
-void Normalized(unsigned char *feature_in, float *feature_out);
+void resize_280_to_28(unsigned char* in, unsigned char* out);
+void Gray_scale(unsigned char* feature_in, unsigned char* feature_out);
+void Normalized(unsigned char* feature_in, float* feature_out);
 
-void Padding(float *feature_in, float *feature_out, int C, int H, int W);
-void Conv_2d(float *feature_in, float *feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float *weight, float *bias);
-void ReLU(float *feature_in, int elem_num);
-void Linear(float *feature_in, float *feature_out, float *weight, float *bias);
-void Log_softmax(float *activation);
-int Get_pred(float *activation);
-void Get_CAM(float *activation, float *cam, int pred, float *weight);
-void save_image(float *feature_scaled, float *cam);
+void Padding(float* feature_in, float* feature_out, int C, int H, int W);
+void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias);
+void ReLU(float* feature_in, int elem_num);
+void Linear(float* feature_in, float* feature_out, float* weight, float* bias);
+void Log_softmax(float* activation);
+int Get_pred(float* activation);
+void Get_CAM(float* activation, float* cam, int pred, float* weight);
+void save_image(float* feature_scaled, float* cam);
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     clock_t start1, end1, start2, end2;
 
     model net;
-    FILE *weights;
+    FILE* weights;
     weights = fopen("./weights.bin", "rb");
     fread(&net, sizeof(model), 1, weights);
 
-    char *file;
+    char* file;
     if (atoi(argv[1]) == 0) {
         /*          PUT YOUR CODE HERE                      */
         /*          Serial communication                    */
@@ -88,8 +88,8 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    unsigned char *feature_in;
-    unsigned char *feature_resize;
+    unsigned char* feature_in;
+    unsigned char* feature_resize;
     unsigned char feature_gray[I1_C * I1_H * I1_W];
     float feature_scaled[I1_C * I1_H * I1_W];
     float feature_padding1[I1_C * (I1_H + 2) * (I1_W + 2)];
@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
 
     if (atoi(argv[1]) == 0) {
         feature_resize = stbi_load(file, &width, &height, &channels, 3);
-        feature_in = (unsigned char *)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
+        feature_in = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
         resize_280_to_28(feature_resize, feature_in);
     }
     else {
@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void resize_280_to_28(unsigned char *in, unsigned char *out) {
+void resize_280_to_28(unsigned char* in, unsigned char* out) {
     /*            DO NOT MODIFIY            */
     int x, y, c;
     for (y = 0; y < 28; y++) {
@@ -168,7 +168,7 @@ void resize_280_to_28(unsigned char *in, unsigned char *out) {
     return;
 }
 
-void Gray_scale(unsigned char *feature_in, unsigned char *feature_out) {
+void Gray_scale(unsigned char* feature_in, unsigned char* feature_out) {
     /*            DO NOT MODIFIY            */
     for (int h = 0; h < I1_H; h++) {
         for (int w = 0; w < I1_W; w++) {
@@ -179,27 +179,26 @@ void Gray_scale(unsigned char *feature_in, unsigned char *feature_out) {
             feature_out[I1_W * h + w] = sum / 3;
         }
     }
-
     return;
 }
 
-void Normalized(unsigned char *feature_in, float *feature_out) {
+void Normalized(unsigned char* feature_in, float* feature_out) {
     /*            DO NOT MODIFIY            */
     for (int i = 0; i < I1_H * I1_W; i++) {
         feature_out[i] = ((float)feature_in[i]) / 255.0;
     }
-
     return;
 }
 
-void Padding(float *feature_in, float *feature_out, int C, int H, int W) {
+void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
     /*          PUT YOUR CODE HERE          */
     for (int c = 0; c < C; c++) {
         for (int h = 0; h < H + 2; h++) {
             for (int w = 0; w < W + 2; w++) {
                 if (h == 0 || h == H + 1 || w == 0 || w == W + 1) {
                     feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w] = 0;
-                } else {
+                }
+                else {
                     feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w] = feature_in[c * H * W + (h - 1) * W + (w - 1)];
                 }
             }
@@ -207,7 +206,7 @@ void Padding(float *feature_in, float *feature_out, int C, int H, int W) {
     }
 }
 
-void Conv_2d(float *feature_in, float *feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float *weight, float *bias) {
+void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
     /*          PUT YOUR CODE HERE          */
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
@@ -228,7 +227,7 @@ void Conv_2d(float *feature_in, float *feature_out, int in_C, int in_H, int in_W
     }
 }
 
-void ReLU(float *feature_in, int elem_num) {
+void ReLU(float* feature_in, int elem_num) {
     /*          PUT YOUR CODE HERE          */
     for (int i = 0; i < elem_num; i++) {
         if (feature_in[i] < 0) {
@@ -237,7 +236,7 @@ void ReLU(float *feature_in, int elem_num) {
     }
 }
 
-void Linear(float *feature_in, float *feature_out, float *weight, float *bias) {
+void Linear(float* feature_in, float* feature_out, float* weight, float* bias) {
     /*          PUT YOUR CODE HERE          */
     for (int i = 0; i < CLASS; i++) {
         float sum = 0;
@@ -248,7 +247,26 @@ void Linear(float *feature_in, float *feature_out, float *weight, float *bias) {
     }
 }
 
-int Get_pred(float *activation) {
+void Log_softmax(float* activation) {
+    float max_val = activation[0];
+    for (int i = 1; i < CLASS; i++) {
+        if (activation[i] > max_val) {
+            max_val = activation[i];
+        }
+    }
+
+    float sum = 0.0;
+    for (int i = 0; i < CLASS; i++) {
+        activation[i] = exp(activation[i] - max_val);
+        sum += activation[i];
+    }
+
+    for (int i = 0; i < CLASS; i++) {
+        activation[i] = log(activation[i] / sum);
+    }
+}
+
+int Get_pred(float* activation) {
     /*          PUT YOUR CODE HERE          */
     int pred = 0;
     float max_val = activation[0];
@@ -261,7 +279,7 @@ int Get_pred(float *activation) {
     return pred;
 }
 
-void Get_CAM(float *activation, float *cam, int pred, float *weight) {
+void Get_CAM(float* activation, float* cam, int pred, float* weight) {
     /*          PUT YOUR CODE HERE          */
     for (int i = 0; i < I3_H * I3_W; i++) {
         cam[i] = 0;
@@ -271,11 +289,11 @@ void Get_CAM(float *activation, float *cam, int pred, float *weight) {
     }
 }
 
-void save_image(float *feature_scaled, float *cam) {
+void save_image(float* feature_scaled, float* cam) {
     /*            DO NOT MODIFIY            */
-    float *output = (float *)malloc(sizeof(float) * 3 * I1_H * I1_W);
-    unsigned char *output_bmp = (unsigned char *)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
-    unsigned char *output_bmp_resized = (unsigned char *)malloc(sizeof(unsigned char) * 3 * I1_H * 14 * I1_W * 14);
+    float* output = (float*)malloc(sizeof(float) * 3 * I1_H * I1_W);
+    unsigned char* output_bmp = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
+    unsigned char* output_bmp_resized = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * 14 * I1_W * 14);
 
     float min = cam[0];
     float max = cam[0];
