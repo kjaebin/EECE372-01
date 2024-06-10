@@ -70,8 +70,7 @@ void setup_gpio();
 void display_number(int number);
 
 int main(int argc, char* argv[]) {
-    clock_t start, end;
-    double time_padding, time_conv1, time_relu1, time_conv2, time_relu2, time_fc, total_time;
+    clock_t start1, end1, start2, end2;
 
     model net;
     FILE* weights;
@@ -131,44 +130,31 @@ int main(int argc, char* argv[]) {
     Gray_scale(feature_in, feature_gray);
     Normalized(feature_gray, feature_scaled);
 
-    start = clock();
+    // 시간 측정 시작
+    start1 = clock();
+
     Padding(feature_scaled, feature_padding1, I1_C, I1_H, I1_W);
-    end = clock();
-    time_padding = (double)(end - start) / CLOCKS_PER_US;
 
-    start = clock();
     Conv_2d(feature_padding1, feature_conv1_out, I1_C, I1_H + 2, I1_W + 2, I2_C, I2_H, I2_W, CONV1_KERNAL, CONV1_STRIDE, net.conv1_weight, net.conv1_bias);
-    end = clock();
-    time_conv1 = (double)(end - start) / CLOCKS_PER_US;
-
-    start = clock();
     ReLU(feature_conv1_out, I2_C * I2_H * I2_W);
-    end = clock();
-    time_relu1 = (double)(end - start) / CLOCKS_PER_US;
 
-    start = clock();
     Padding(feature_conv1_out, feature_padding2, I2_C, I2_H, I2_W);
     Conv_2d(feature_padding2, feature_conv2_out, I2_C, I2_H + 2, I2_W + 2, I3_C, I3_H, I3_W, CONV2_KERNAL, CONV2_STRIDE, net.conv2_weight, net.conv2_bias);
-    end = clock();
-    time_conv2 = (double)(end - start) / CLOCKS_PER_US;
-
-    start = clock();
     ReLU(feature_conv2_out, I3_C * I3_H * I3_W);
-    end = clock();
-    time_relu2 = (double)(end - start) / CLOCKS_PER_US;
 
-    start = clock();
     Linear(feature_conv2_out, fc_out, net.fc_weight, net.fc_bias);
-    end = clock();
-    time_fc = (double)(end - start) / CLOCKS_PER_US;
+
+    // 시간 측정 종료
+    end1 = clock();
 
     Log_softmax(fc_out);
 
-    start = clock();
+    // CAM 수행 시간 측정 시작
+    start2 = clock();
     pred = Get_pred(fc_out);
     Get_CAM(feature_conv2_out, cam, pred, net.fc_weight);
-    end = clock();
-    total_time = (double)(end - start) / CLOCKS_PER_US;
+    // CAM 수행 시간 측정 종료
+    end2 = clock();
 
     save_image(feature_scaled, cam);
 
@@ -180,13 +166,15 @@ int main(int argc, char* argv[]) {
         printf("%2d: %6.3f\n", i, fc_out[i]);
     }
     printf("Prediction: %d\n", pred);
-    printf("Padding time: %9.3lf[us]\n", time_padding);
+    printf("Zero Padding time: %9.3lf[us]\n", time_padding);
     printf("Conv1 time: %9.3lf[us]\n", time_conv1);
     printf("ReLU1 time: %9.3lf[us]\n", time_relu1);
     printf("Conv2 time: %9.3lf[us]\n", time_conv2);
     printf("ReLU2 time: %9.3lf[us]\n", time_relu2);
     printf("FC time: %9.3lf[us]\n", time_fc);
-    printf("Total execution time: %9.3lf[us]\n", total_time);
+    printf("Inference time: %9.3lf[us]\n", (double)(end1 - start1) / CLOCKS_PER_US);
+    printf("CAM time: %9.3lf[us]\n", (double)(end2 - start2) / CLOCKS_PER_US);
+    printf("Total execution time: %9.3lf[us]\n", (double)((end1 - start1) + (end2 - start2)) / CLOCKS_PER_US);
 
     if (atoi(argv[1]) == 0) {
         free(feature_in);
@@ -199,7 +187,6 @@ int main(int argc, char* argv[]) {
 }
 
 void resize_280_to_28(unsigned char* in, unsigned char* out) {
-    /*            DO NOT MODIFY            */
     int x, y, c;
     for (y = 0; y < 28; y++) {
         for (x = 0; x < 28; x++) {
@@ -208,11 +195,9 @@ void resize_280_to_28(unsigned char* in, unsigned char* out) {
             }
         }
     }
-    return;
 }
 
 void Gray_scale(unsigned char* feature_in, unsigned char* feature_out) {
-    /*            DO NOT MODIFY            */
     for (int h = 0; h < I1_H; h++) {
         for (int w = 0; w < I1_W; w++) {
             int sum = 0;
@@ -222,32 +207,25 @@ void Gray_scale(unsigned char* feature_in, unsigned char* feature_out) {
             feature_out[I1_W * h + w] = sum / 3;
         }
     }
-    return;
 }
 
 void Normalized(unsigned char* feature_in, float* feature_out) {
-    /*            DO NOT MODIFY            */
     for (int i = 0; i < I1_H * I1_W; i++) {
         feature_out[i] = ((float)feature_in[i]) / 255.0;
     }
-    return;
 }
 
 void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
-    /* NEON을 사용하여 zero padding 구현 */
-    float32x4_t zero_vector = vdupq_n_f32(0.0); // 0으로 구성된 벡터 생성
+    float32x4_t zero_vector = vdupq_n_f32(0.0);
 
     for (int c = 0; c < C; c++) {
-        // 상단과 하단 패딩 (0번째 행과 마지막 행)
         for (int i = 0; i < (W + 2) / 4; i++) {
-            vst1q_f32(&feature_out[c * (H + 2) * (W + 2) + 0 * (W + 2) + i * 4], zero_vector); // 0번째 행
-            vst1q_f32(&feature_out[c * (H + 2) * (W + 2) + (H + 1) * (W + 2) + i * 4], zero_vector); // 마지막 행
+            vst1q_f32(&feature_out[c * (H + 2) * (W + 2) + 0 * (W + 2) + i * 4], zero_vector);
+            vst1q_f32(&feature_out[c * (H + 2) * (W + 2) + (H + 1) * (W + 2) + i * 4], zero_vector);
         }
-
-        // 중앙 패딩 (1번째 행부터 H번째 행)
         for (int h = 1; h <= H; h++) {
-            feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + 0] = 0; // 0번째 열
-            feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + (W + 1)] = 0; // 마지막 열
+            feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + 0] = 0;
+            feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + (W + 1)] = 0;
             for (int w = 1; w <= W; w += 4) {
                 float32x4_t neon_in = vld1q_f32(&feature_in[c * H * W + (h - 1) * W + (w - 1)]);
                 vst1q_f32(&feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w], neon_in);
@@ -281,17 +259,16 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
 }
 
 void ReLU(float* feature_in, int elem_num) {
-    float32x4_t zero_vector = vdupq_n_f32(0.0f); // Initialize zero vector
+    float32x4_t zero_vector = vdupq_n_f32(0.0f);
     int i;
 
     for (i = 0; i < elem_num; i += 4) {
-        float32x4_t in_vector = vld1q_f32(&feature_in[i]); // Load 4 elements from feature_in
-        uint32x4_t condition = vcltq_f32(in_vector, zero_vector); // Compare in_vector with zero_vector
-        float32x4_t result = vbslq_f32(condition, zero_vector, in_vector); // Select between zero_vector and in_vector
-        vst1q_f32(&feature_in[i], result); // Store the result back to feature_in
+        float32x4_t in_vector = vld1q_f32(&feature_in[i]);
+        uint32x4_t condition = vcltq_f32(in_vector, zero_vector);
+        float32x4_t result = vbslq_f32(condition, zero_vector, in_vector);
+        vst1q_f32(&feature_in[i], result);
     }
 
-    // Handle the remaining elements
     for (; i < elem_num; i++) {
         if (feature_in[i] < 0) {
             feature_in[i] = 0;
@@ -301,24 +278,22 @@ void ReLU(float* feature_in, int elem_num) {
 
 void Linear(float* feature_in, float* feature_out, float* weight, float* bias) {
     for (int i = 0; i < CLASS; i++) {
-        float32x4_t partial_sum = vdupq_n_f32(0.0f); // Initialize partial sum vector to 0
+        float32x4_t partial_sum = vdupq_n_f32(0.0f);
 
         for (int j = 0; j < I3_C * I3_H * I3_W; j += 4) {
-            float32x4_t in_vector = vld1q_f32(&feature_in[j]); // Load 4 elements from feature_in
-            float32x4_t weight_vector = vld1q_f32(&weight[i * I3_C * I3_H * I3_W + j]); // Load 4 elements from weight
-            partial_sum = vmlaq_f32(partial_sum, in_vector, weight_vector); // Multiply and accumulate
+            float32x4_t in_vector = vld1q_f32(&feature_in[j]);
+            float32x4_t weight_vector = vld1q_f32(&weight[i * I3_C * I3_H * I3_W + j]);
+            partial_sum = vmlaq_f32(partial_sum, in_vector, weight_vector);
         }
 
-        // Horizontal addition of the 4 elements in the vector
         float32x2_t sum_pair = vadd_f32(vget_low_f32(partial_sum), vget_high_f32(partial_sum));
         float sum = vget_lane_f32(vpadd_f32(sum_pair, sum_pair), 0);
 
-        feature_out[i] = sum + bias[i]; // Add bias
+        feature_out[i] = sum + bias[i];
     }
 }
 
 void Log_softmax(float* activation) {
-    /*          PUT YOUR CODE HERE          */
     double max = activation[0];
     double sum = 0.0;
 
@@ -339,9 +314,6 @@ void Log_softmax(float* activation) {
 }
 
 int Get_pred(float* activation) {
-    /*          PUT YOUR CODE HERE          */
-    // Get_pred input : float *activation
-    // Get_pred output: int pred
     int pred = 0;
     float max_val = activation[0];
     for (int i = 1; i < CLASS; i++) {
@@ -354,9 +326,6 @@ int Get_pred(float* activation) {
 }
 
 void Get_CAM(float* activation, float* cam, int pred, float* weight) {
-    /*          PUT YOUR CODE HERE          */
-    // Get_CAM input : float *activation
-    // Get_CAM output: float *cam
     for (int i = 0; i < I3_H * I3_W; i++) {
         cam[i] = 0;
         for (int j = 0; j < I3_C; j++) {
@@ -366,7 +335,6 @@ void Get_CAM(float* activation, float* cam, int pred, float* weight) {
 }
 
 void save_image(float* feature_scaled, float* cam) {
-    /*            DO NOT MODIFY            */
     float* output = (float*)malloc(sizeof(float) * 3 * I1_H * I1_W);
     unsigned char* output_bmp = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
     unsigned char* output_bmp_resized = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * 14 * I1_W * 14);
