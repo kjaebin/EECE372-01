@@ -275,15 +275,20 @@ void ReLU(float* feature_in, int elem_num) {
 }
 
 void Linear(float* feature_in, float* feature_out, float* weight, float* bias) {
-    /*          PUT YOUR CODE HERE          */
-    // Linear input : float *feature_in
-    // Linear output: float *feature_out
     for (int i = 0; i < CLASS; i++) {
-        float sum = 0;
-        for (int j = 0; j < I3_C * I3_H * I3_W; j++) {
-            sum += feature_in[j] * weight[i * I3_C * I3_H * I3_W + j];
+        float32x4_t partial_sum = vdupq_n_f32(0.0f); // Initialize partial sum vector to 0
+
+        for (int j = 0; j < I3_C * I3_H * I3_W; j += 4) {
+            float32x4_t in_vector = vld1q_f32(&feature_in[j]); // Load 4 elements from feature_in
+            float32x4_t weight_vector = vld1q_f32(&weight[i * I3_C * I3_H * I3_W + j]); // Load 4 elements from weight
+            partial_sum = vmlaq_f32(partial_sum, in_vector, weight_vector); // Multiply and accumulate
         }
-        feature_out[i] = sum + bias[i];
+
+        // Horizontal addition of the 4 elements in the vector
+        float32x2_t sum_pair = vadd_f32(vget_low_f32(partial_sum), vget_high_f32(partial_sum));
+        float sum = vget_lane_f32(vpadd_f32(sum_pair, sum_pair), 0);
+
+        feature_out[i] = sum + bias[i]; // Add bias
     }
 }
 
