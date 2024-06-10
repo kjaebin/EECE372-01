@@ -273,24 +273,40 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
 #include <arm_neon.h>  // Include the NEON header
 
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
+    // Zero initialization of the output matrix
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float32x4_t partial_sum = vdupq_n_f32(0.0);
-                for (int ic = 0; ic < in_C; ic++) {
-                    for (int kh = 0; kh < K; kh++) {
-                        int ih = oh * S + kh;
-                        for (int kw = 0; kw < K; kw += 4) {
+                feature_out[oc * out_H * out_W + oh * out_W + ow] = 0.0f;
+            }
+        }
+    }
+
+    // Convolution operation using NEON
+    for (int oc = 0; oc < out_C; oc++) {
+        for (int ic = 0; ic < in_C; ic++) {
+            for (int kh = 0; kh < K; kh++) {
+                for (int kw = 0; kw < K; kw++) {
+                    for (int oh = 0; oh < out_H; oh++) {
+                        for (int ow = 0; ow < out_W; ow += 4) {
+                            int ih = oh * S + kh;
                             int iw = ow * S + kw;
                             float32x4_t in_value = vld1q_f32(&feature_in[ic * in_H * in_W + ih * in_W + iw]);
                             float32x4_t weight_value = vld1q_f32(&weight[oc * in_C * K * K + ic * K * K + kh * K + kw]);
-                            partial_sum = vmlaq_f32(partial_sum, in_value, weight_value);
+                            float32x4_t out_value = vld1q_f32(&feature_out[oc * out_H * out_W + oh * out_W + ow]);
+
+                            out_value = vmlaq_f32(out_value, in_value, weight_value);
+                            vst1q_f32(&feature_out[oc * out_H * out_W + oh * out_W + ow], out_value);
                         }
                     }
                 }
-                float sum[4];
-                vst1q_f32(sum, partial_sum);
-                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum[0] + sum[1] + sum[2] + sum[3] + bias[oc];
+            }
+        }
+
+        // Add bias
+        for (int oh = 0; oh < out_H; oh++) {
+            for (int ow = 0; ow < out_W; ow++) {
+                feature_out[oc * out_H * out_W + oh * out_W + ow] += bias[oc];
             }
         }
     }
