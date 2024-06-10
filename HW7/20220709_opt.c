@@ -235,15 +235,16 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float32x4_t partial_sum = vdupq_n_f32(0.0);
+                float32x4_t partial_sum = vdupq_n_f32(0.0f); // initialize partial sum vector to zero
                 for (int ic = 0; ic < in_C; ic++) {
                     for (int kh = 0; kh < K; kh++) {
                         int ih = oh * S + kh;
-                        for (int kw = 0; kw < K; kw += 4) {
+                        for (int kw = 0; kw < K; kw++) {
                             int iw = ow * S + kw;
-                            float32x4_t in_value = vld1q_f32(&feature_in[ic * in_H * in_W + ih * in_W + iw]);
-                            float32x4_t weight_value = vld1q_f32(&weight[oc * in_C * K * K + ic * K * K + kh * K + kw]);
-                            partial_sum = vmlaq_f32(partial_sum, in_value, weight_value);
+                            // Handle boundary conditions for kw
+                            float in_val = feature_in[ic * in_H * in_W + ih * in_W + iw];
+                            float w_val = weight[oc * in_C * K * K + ic * K * K + kh * K + kw];
+                            partial_sum = vmlaq_n_f32(partial_sum, vdupq_n_f32(in_val), w_val);
                         }
                     }
                 }
