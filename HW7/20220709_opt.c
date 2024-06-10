@@ -95,18 +95,13 @@ int main(int argc, char* argv[]) {
 
     char* file;
     if (atoi(argv[1]) == 0) {
-        /*          PUT YOUR CODE HERE                      */
-        /*          Serial communication                    */
         system("libcamera-still -e bmp --width 280 --height 280 -t 20000 -o image.bmp");
         file = "image.bmp";
-    }
-    else if (atoi(argv[1]) == 1) {
+    } else if (atoi(argv[1]) == 1) {
         file = "example_1.bmp";
-    }
-    else if (atoi(argv[1]) == 2) {
+    } else if (atoi(argv[1]) == 2) {
         file = "example_2.bmp";
-    }
-    else {
+    } else {
         printf("Wrong Input!\n");
         exit(1);
     }
@@ -131,8 +126,7 @@ int main(int argc, char* argv[]) {
         }
         feature_in = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
         resize_280_to_28(feature_resize, feature_in);
-    }
-    else {
+    } else {
         feature_in = stbi_load(file, &width, &height, &channels, 3);
         if (feature_in == NULL) {
             printf("Failed to load image: %s\n", file);
@@ -203,8 +197,7 @@ int main(int argc, char* argv[]) {
     if (atoi(argv[1]) == 0) {
         free(feature_in);
         stbi_image_free(feature_resize);
-    }
-    else {
+    } else {
         stbi_image_free(feature_in);
     }
     return 0;
@@ -268,8 +261,6 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
     }
 }
 
-#include <arm_neon.h>
-
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
     // Output 초기화
     float32x4_t zero_vector = vdupq_n_f32(0.0f);
@@ -295,8 +286,7 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                                 float32x4_t in_value = vld1q_f32(&feature_in[ic * in_H * in_W + ih * in_W + iw]);
                                 float32x4_t weight_value = vld1q_f32(&weight[oc * in_C * K * K + ic * K * K + kh * K + kw]);
                                 partial_sum = vmlaq_f32(partial_sum, in_value, weight_value);
-                            }
-                            else {
+                            } else {
                                 float in_temp[4] = { 0 };
                                 float weight_temp[4] = { 0 };
                                 for (int i = 0; i < 4 && iw + i < in_W; i++) {
@@ -313,17 +303,10 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                 float sum[4];
                 vst1q_f32(sum, partial_sum);
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum[0] + sum[1] + sum[2] + sum[3] + bias[oc];
-
-                // 중간 결과 출력
-                if (oc == 0 && oh == 0 && ow < 10) { // 일부 값만 출력
-                    printf("partial_sum: [%f, %f, %f, %f], feature_out[%d]: %f\n",
-                        sum[0], sum[1], sum[2], sum[3], ow, feature_out[oc * out_H * out_W + oh * out_W + ow]);
-                }
             }
         }
     }
 }
-
 
 void ReLU(float* feature_in, int elem_num) {
     float32x4_t zero_vector = vdupq_n_f32(0.0f); // Initialize zero vector
