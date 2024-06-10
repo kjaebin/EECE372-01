@@ -82,6 +82,16 @@ int main(int argc, char* argv[]) {
         return -1;
     }
     fread(&net, sizeof(model), 1, weights);
+    fclose(weights);
+
+    // 디버그 출력: Conv1 weight와 bias 값 출력
+    printf("Conv1 weights and biases:\n");
+    for (int i = 0; i < I2_C * I1_C * CONV1_KERNAL * CONV1_KERNAL; i++) {
+        printf("weight[%d]: %f\n", i, net.conv1_weight[i]);
+    }
+    for (int i = 0; i < I2_C; i++) {
+        printf("bias[%d]: %f\n", i, net.conv1_bias[i]);
+    }
 
     char* file;
     if (atoi(argv[1]) == 0) {
