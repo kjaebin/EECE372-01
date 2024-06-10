@@ -7,13 +7,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <errno.h>
 #include <string.h>
 #include <wiringPi.h>
-#include <sys/types.h>
-#include <termios.h>
-#include <fcntl.h>
-#include <errno.h>
-
 #include "stb_image.h"
 #include "stb_image_resize2.h"
 #include "stb_image_write.h"
@@ -44,8 +43,6 @@
 #define FC_IN (I2_H * I2_W)
 #define FC_OUT CLASS
 
-#define BAUDRATE B1000000
-
 typedef struct _model {
     float conv1_weight[I2_C * I1_C * CONV1_KERNAL * CONV1_KERNAL];
     float conv1_bias[I2_C];
@@ -57,28 +54,28 @@ typedef struct _model {
     float fc_bias[FC_OUT];
 } model;
 
-int pin_num[] = {29, 28, 23, 22, 21, 27, 26};
+int pin_num[] = { 29, 28, 23, 22, 21, 27, 26 };
 
-void resize_280_to_28(unsigned char *in, unsigned char *out);
-void Gray_scale(unsigned char *feature_in, unsigned char *feature_out);
-void Normalized(unsigned char *feature_in, float *feature_out);
+void resize_280_to_28(unsigned char* in, unsigned char* out);
+void Gray_scale(unsigned char* feature_in, unsigned char* feature_out);
+void Normalized(unsigned char* feature_in, float* feature_out);
 
-void Padding(float *feature_in, float *feature_out, int C, int H, int W);
-void Conv_2d(float *feature_in, float *feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float *weight, float *bias);
-void ReLU(float *feature_in, int elem_num);
-void Linear(float *feature_in, float *feature_out, float *weight, float *bias);
-void Log_softmax(float *activation);
-int Get_pred(float *activation);
-void Get_CAM(float *activation, float *cam, int pred, float *weight);
-void save_image(float *feature_scaled, float *cam);
+void Padding(float* feature_in, float* feature_out, int C, int H, int W);
+void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias);
+void ReLU(float* feature_in, int elem_num);
+void Linear(float* feature_in, float* feature_out, float* weight, float* bias);
+void Log_softmax(float* activation);
+int Get_pred(float* activation);
+void Get_CAM(float* activation, float* cam, int pred, float* weight);
+void save_image(float* feature_scaled, float* cam);
 void setup_gpio();
 void display_number(int number);
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     clock_t start1, end1, start2, end2;
 
     model net;
-    FILE *weights;
+    FILE* weights;
     weights = fopen("./weights.bin", "rb");
     if (weights == NULL) {
         printf("Error opening weights file.\n");
@@ -87,9 +84,11 @@ int main(int argc, char *argv[]) {
     fread(&net, sizeof(model), 1, weights);
     fclose(weights);
 
-    char *file;
-    if (atoi(argv[1]) == 0) {
-        int fd;
+    char* file;
+    int mode = atoi(argv[1]);
+    if (mode == 0) {
+        /* Serial communication */
+        int fd;            
         struct termios newtio;
         char buf[256];
 
@@ -101,7 +100,7 @@ int main(int argc, char *argv[]) {
         }
 
         memset(&newtio, 0, sizeof(newtio));
-        newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+        newtio.c_cflag = B1000000 | CS8 | CLOCAL | CREAD;
         newtio.c_iflag = ICRNL;
         newtio.c_oflag = 0;
         newtio.c_lflag = 0;
@@ -117,24 +116,24 @@ int main(int argc, char *argv[]) {
                 buf[cnt] = '\0';
                 printf("Received: %s\r\n", buf);
                 if (strcmp(buf, "c") == 0 || strcmp(buf, "C") == 0) {
-                    system("libcamera-still -e bmp --width 280 --height 280 -t 2000 -o image.bmp");
+                    system("libcamera-still -e bmp --width 280 --height 280 -t 20000 -o image.bmp");
                     file = "image.bmp";
                     break;
                 }
             }
         }
         close(fd);
-    } else if (atoi(argv[1]) == 1) {
+    } else if (mode == 1) {
         file = "example_1.bmp";
-    } else if (atoi(argv[1]) == 2) {
+    } else if (mode == 2) {
         file = "example_2.bmp";
     } else {
         printf("Wrong Input!\n");
         exit(1);
     }
 
-    unsigned char *feature_in;
-    unsigned char *feature_resize;
+    unsigned char* feature_in;
+    unsigned char* feature_resize;
     unsigned char feature_gray[I1_C * I1_H * I1_W];
     float feature_scaled[I1_C * I1_H * I1_W];
     float feature_padding1[I1_C * (I1_H + 2) * (I1_W + 2)];
@@ -145,13 +144,13 @@ int main(int argc, char *argv[]) {
     float cam[1 * I3_H * I3_W];
     int channels, height, width;
 
-    if (atoi(argv[1]) == 0) {
+    if (mode == 0) {
         feature_resize = stbi_load(file, &width, &height, &channels, 3);
         if (feature_resize == NULL) {
             printf("Failed to load image: %s\n", file);
             return -1;
         }
-        feature_in = (unsigned char *)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
+        feature_in = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
         resize_280_to_28(feature_resize, feature_in);
     } else {
         feature_in = stbi_load(file, &width, &height, &channels, 3);
@@ -164,7 +163,7 @@ int main(int argc, char *argv[]) {
     int pred = 0;
     Gray_scale(feature_in, feature_gray);
     Normalized(feature_gray, feature_scaled);
-    /***************      Implement these functions      ********************/
+    /*************** Implement these functions ********************/
     start1 = clock();
     Padding(feature_scaled, feature_padding1, I1_C, I1_H, I1_W);
     Conv_2d(feature_padding1, feature_conv1_out, I1_C, I1_H + 2, I1_W + 2, I2_C, I2_H, I2_W, CONV1_KERNAL, CONV1_STRIDE, net.conv1_weight, net.conv1_bias);
@@ -183,7 +182,7 @@ int main(int argc, char *argv[]) {
     pred = Get_pred(fc_out);
     Get_CAM(feature_conv2_out, cam, pred, net.fc_weight);
     end2 = clock() - start2;
-    /************************************************************************/
+    /***********************************************************************/
     save_image(feature_scaled, cam);
 
     setup_gpio();
@@ -196,7 +195,7 @@ int main(int argc, char *argv[]) {
     printf("Prediction: %d\n", pred);
     printf("Execution time: %9.3lf[us]\n", (double)(end1 + end2) / CLOCKS_PER_US);
 
-    if (atoi(argv[1]) == 0) {
+    if (mode == 0) {
         free(feature_in);
         stbi_image_free(feature_resize);
     } else {
@@ -205,8 +204,8 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void resize_280_to_28(unsigned char *in, unsigned char *out) {
-    /*            DO NOT MODIFY            */
+void resize_280_to_28(unsigned char* in, unsigned char* out) {
+    /* DO NOT MODIFY */
     int x, y, c;
     for (y = 0; y < 28; y++) {
         for (x = 0; x < 28; x++) {
@@ -218,8 +217,8 @@ void resize_280_to_28(unsigned char *in, unsigned char *out) {
     return;
 }
 
-void Gray_scale(unsigned char *feature_in, unsigned char *feature_out) {
-    /*            DO NOT MODIFY            */
+void Gray_scale(unsigned char* feature_in, unsigned char* feature_out) {
+    /* DO NOT MODIFY */
     for (int h = 0; h < I1_H; h++) {
         for (int w = 0; w < I1_W; w++) {
             int sum = 0;
@@ -232,24 +231,23 @@ void Gray_scale(unsigned char *feature_in, unsigned char *feature_out) {
     return;
 }
 
-void Normalized(unsigned char *feature_in, float *feature_out) {
-    /*            DO NOT MODIFY            */
+void Normalized(unsigned char* feature_in, float* feature_out) {
+    /* DO NOT MODIFY */
     for (int i = 0; i < I1_H * I1_W; i++) {
         feature_out[i] = ((float)feature_in[i]) / 255.0;
     }
     return;
 }
 
-void Padding(float *feature_in, float *feature_out, int C, int H, int W) {
-    /*          PUT YOUR CODE HERE          */
-    // Padding input : float *feature_in
-    // Padding output: float *feature_out
+void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
+    /* PUT YOUR CODE HERE */
     for (int c = 0; c < C; c++) {
         for (int h = 0; h < H + 2; h++) {
             for (int w = 0; w < W + 2; w++) {
                 if (h == 0 || h == H + 1 || w == 0 || w == W + 1) {
                     feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w] = 0;
-                } else {
+                }
+                else {
                     feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w] = feature_in[c * H * W + (h - 1) * W + (w - 1)];
                 }
             }
@@ -257,10 +255,8 @@ void Padding(float *feature_in, float *feature_out, int C, int H, int W) {
     }
 }
 
-void Conv_2d(float *feature_in, float *feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float *weight, float *bias) {
-    /*          PUT YOUR CODE HERE          */
-    // Conv_2d input : float *feature_in
-    // Conv_2d output: float *feature_out
+void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
+    /* PUT YOUR CODE HERE */
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
@@ -280,10 +276,8 @@ void Conv_2d(float *feature_in, float *feature_out, int in_C, int in_H, int in_W
     }
 }
 
-void ReLU(float *feature_in, int elem_num) {
-    /*          PUT YOUR CODE HERE          */
-    // ReLU input : float *feature_in
-    // ReLU output: float *feature_in
+void ReLU(float* feature_in, int elem_num) {
+    /* PUT YOUR CODE HERE */
     for (int i = 0; i < elem_num; i++) {
         if (feature_in[i] < 0) {
             feature_in[i] = 0;
@@ -291,10 +285,8 @@ void ReLU(float *feature_in, int elem_num) {
     }
 }
 
-void Linear(float *feature_in, float *feature_out, float *weight, float *bias) {
-    /*          PUT YOUR CODE HERE          */
-    // Linear input : float *feature_in
-    // Linear output: float *feature_out
+void Linear(float* feature_in, float* feature_out, float* weight, float* bias) {
+    /* PUT YOUR CODE HERE */
     for (int i = 0; i < CLASS; i++) {
         float sum = 0;
         for (int j = 0; j < I3_C * I3_H * I3_W; j++) {
@@ -304,7 +296,7 @@ void Linear(float *feature_in, float *feature_out, float *weight, float *bias) {
     }
 }
 
-void Log_softmax(float *activation) {
+void Log_softmax(float* activation) {
     double max = activation[0];
     double sum = 0.0;
 
@@ -324,7 +316,8 @@ void Log_softmax(float *activation) {
     }
 }
 
-int Get_pred(float *activation) {
+int Get_pred(float* activation) {
+    /* PUT YOUR CODE HERE */
     int pred = 0;
     float max_val = activation[0];
     for (int i = 1; i < CLASS; i++) {
@@ -336,7 +329,8 @@ int Get_pred(float *activation) {
     return pred;
 }
 
-void Get_CAM(float *activation, float *cam, int pred, float *weight) {
+void Get_CAM(float* activation, float* cam, int pred, float* weight) {
+    /* PUT YOUR CODE HERE */
     for (int i = 0; i < I3_H * I3_W; i++) {
         cam[i] = 0;
         for (int j = 0; j < I3_C; j++) {
@@ -345,10 +339,11 @@ void Get_CAM(float *activation, float *cam, int pred, float *weight) {
     }
 }
 
-void save_image(float *feature_scaled, float *cam) {
-    float *output = (float *)malloc(sizeof(float) * 3 * I1_H * I1_W);
-    unsigned char *output_bmp = (unsigned char *)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
-    unsigned char *output_bmp_resized = (unsigned char *)malloc(sizeof(unsigned char) * 3 * I1_H * 14 * I1_W * 14);
+void save_image(float* feature_scaled, float* cam) {
+    /* DO NOT MODIFY */
+    float* output = (float*)malloc(sizeof(float) * 3 * I1_H * I1_W);
+    unsigned char* output_bmp = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
+    unsigned char* output_bmp_resized = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * 14 * I1_W * 14);
 
     float min = cam[0];
     float max = cam[0];
