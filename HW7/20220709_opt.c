@@ -71,6 +71,8 @@ void display_number(int number);
 
 int main(int argc, char* argv[]) {
     clock_t start1, end1, start2, end2;
+    clock_t start_padding, end_padding, start_conv1, end_conv1, start_relu1, end_relu1;
+    clock_t start_conv2, end_conv2, start_relu2, end_relu2, start_fc, end_fc;
 
     model net;
     FILE* weights;
@@ -133,15 +135,30 @@ int main(int argc, char* argv[]) {
     Normalized(feature_gray, feature_scaled);
     /***************      Implement these functions      ********************/
     start1 = clock();
+    start_padding = clock();
     Padding(feature_scaled, feature_padding1, I1_C, I1_H, I1_W);
-    Conv_2d(feature_padding1, feature_conv1_out, I1_C, I1_H + 2, I1_W + 2, I2_C, I2_H, I2_W, CONV1_KERNAL, CONV1_STRIDE, net.conv1_weight, net.conv1_bias);
-    ReLU(feature_conv1_out, I2_C * I2_H * I2_W);
+    end_padding = clock();
 
+    start_conv1 = clock();
+    Conv_2d(feature_padding1, feature_conv1_out, I1_C, I1_H + 2, I1_W + 2, I2_C, I2_H, I2_W, CONV1_KERNAL, CONV1_STRIDE, net.conv1_weight, net.conv1_bias);
+    end_conv1 = clock();
+
+    start_relu1 = clock();
+    ReLU(feature_conv1_out, I2_C * I2_H * I2_W);
+    end_relu1 = clock();
+
+    start_conv2 = clock();
     Padding(feature_conv1_out, feature_padding2, I2_C, I2_H, I2_W);
     Conv_2d(feature_padding2, feature_conv2_out, I2_C, I2_H + 2, I2_W + 2, I3_C, I3_H, I3_W, CONV2_KERNAL, CONV2_STRIDE, net.conv2_weight, net.conv2_bias);
-    ReLU(feature_conv2_out, I3_C * I3_H * I3_W);
+    end_conv2 = clock();
 
+    start_relu2 = clock();
+    ReLU(feature_conv2_out, I3_C * I3_H * I3_W);
+    end_relu2 = clock();
+
+    start_fc = clock();
     Linear(feature_conv2_out, fc_out, net.fc_weight, net.fc_bias);
+    end_fc = clock();
     end1 = clock() - start1;
 
     Log_softmax(fc_out);
@@ -155,6 +172,14 @@ int main(int argc, char* argv[]) {
 
     setup_gpio();
     display_number(pred);
+
+    printf("Zero Padding time: %9.3lf[us]\n", (double)(end_padding - start_padding) / CLOCKS_PER_US);
+    printf("Conv1 + ReLU1 time: %9.3lf[us]\n", (double)(end_conv1 - start_conv1 + end_relu1 - start_relu1) / CLOCKS_PER_US);
+    printf("Conv2 + ReLU2 time: %9.3lf[us]\n", (double)(end_conv2 - start_conv2 + end_relu2 - start_relu2) / CLOCKS_PER_US);
+    printf("FC time: %9.3lf[us]\n", (double)(end_fc - start_fc) / CLOCKS_PER_US);
+    printf("Total time (excluding Softmax): %9.3lf[us]\n", (double)end1 / CLOCKS_PER_US);
+    printf("CAM time: %9.3lf[us]\n", (double)end2 / CLOCKS_PER_US);
+    printf("Total time (including CAM): %9.3lf[us]\n", (double)(end1 + end2) / CLOCKS_PER_US);
 
     printf("Log softmax value\n");
     for (int i = 0; i < CLASS; i++) {
