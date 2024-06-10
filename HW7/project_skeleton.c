@@ -248,16 +248,17 @@ void Linear(float* feature_in, float* feature_out, float* weight, float* bias) {
 }
 
 void Log_softmax(float* activation) {
-    float max_val = activation[0];
+    double max = activation[0];
+    double sum = 0.0;
+
     for (int i = 1; i < CLASS; i++) {
-        if (activation[i] > max_val) {
-            max_val = activation[i];
+        if (activation[i] > max) {
+            max = activation[i];
         }
     }
 
-    float sum = 0.0;
     for (int i = 0; i < CLASS; i++) {
-        activation[i] = exp(activation[i] - max_val);
+        activation[i] = exp(activation[i] - max);
         sum += activation[i];
     }
 
