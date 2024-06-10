@@ -256,6 +256,9 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
     }
 }
 
+#include <stdio.h>
+#include <arm_neon.h>
+
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
     // Output 초기화
     float32x4_t zero_vector = vdupq_n_f32(0.0f);
@@ -295,9 +298,14 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                         }
                     }
                 }
-                float result[4];
-                vst1q_f32(result, partial_sum);
-                feature_out[oc * out_H * out_W + oh * out_W + ow] += result[0] + result[1] + result[2] + result[3] + bias[oc];
+                float sum[4];
+                vst1q_f32(sum, partial_sum);
+                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum[0] + sum[1] + sum[2] + sum[3] + bias[oc];
+
+                // 중간 결과 출력
+                if (oc == 0 && oh == 0 && ow < 10) { // 일부 값만 출력
+                    printf("feature_out[%d]: %f\n", ow, feature_out[oc * out_H * out_W + oh * out_W + ow]);
+                }
             }
         }
     }
