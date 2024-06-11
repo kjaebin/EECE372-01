@@ -314,26 +314,29 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     int K2 = K * K;
 
     for (int oc = 0; oc < out_C; oc++) {
-        float* out_ptr = feature_out + oc * out_H * out_W;
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float sum = bias[oc];
+                float32x4_t sum_vec = vdupq_n_f32(0.0f);
                 int ih_base = oh * S;
                 int iw_base = ow * S;
 
                 for (int ic = 0; ic < in_C; ic++) {
-                    float* weight_ptr = weight + oc * in_C * K2 + ic * K2;
-                    float* input_ptr = feature_in + ic * in_HW + ih_base * in_W + iw_base;
+                    float* weight_ptr = &weight[oc * in_C * K2 + ic * K2];
+                    float* input_ptr = &feature_in[ic * in_HW + ih_base * in_W + iw_base];
 
                     for (int kh = 0; kh < K; kh++) {
-                        for (int kw = 0; kw < K; kw++) {
-                            sum += input_ptr[kw] * weight_ptr[kw];
+                        for (int kw = 0; kw < K; kw += 4) {
+                            float32x4_t input_vec = vld1q_f32(input_ptr + kw);
+                            float32x4_t weight_vec = vld1q_f32(weight_ptr + kw);
+                            sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
                         }
                         weight_ptr += K;
                         input_ptr += in_W;
                     }
                 }
-                out_ptr[oh * out_W + ow] = sum;
+                // 수평 덧셈을 사용하여 벡터의 모든 요소를 합산하고 bias를 추가
+                float sum = vaddvq_f32(sum_vec) + bias[oc];
+                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum;
             }
         }
     }
