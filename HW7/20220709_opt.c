@@ -2,6 +2,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 
+#include <arm_neon.h> // NEON 라이브러리 추가
+
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
