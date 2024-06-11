@@ -317,7 +317,7 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float32x4_t sum_vec = vdupq_n_f32(0.0f);
+                float sum = 0.0f;
                 int ih_base = oh * S;
                 int iw_base = ow * S;
 
@@ -326,16 +326,13 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                     float* input_ptr = &feature_in[ic * in_HW + ih_base * in_W + iw_base];
 
                     for (int kh = 0; kh < K; kh++) {
-                        float32x4_t input_vec = vld1q_f32(input_ptr);
-                        float32x4_t weight_vec = vld1q_f32(weight_ptr);
-                        sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
-
+                        for (int kw = 0; kw < K; kw++) {
+                            sum += input_ptr[kw] * weight_ptr[kw];
+                        }
                         weight_ptr += K;
                         input_ptr += in_W;
                     }
                 }
-                // 수동으로 수직 덧셈 수행
-                float sum = vgetq_lane_f32(sum_vec, 0) + vgetq_lane_f32(sum_vec, 1) + vgetq_lane_f32(sum_vec, 2) + vgetq_lane_f32(sum_vec, 3);
                 feature_out[oc * out_HW + oh * out_W + ow] = sum + bias[oc];
             }
         }
