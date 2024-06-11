@@ -147,7 +147,7 @@ int main(int argc, char* argv[]) {
     else if (atoi(argv[1]) == 2) {
         file = "example_2.bmp";
     }
-    //
+    /*
     else if (atoi(argv[1]) == 3) {
         file = "example_3.bmp";
     }
@@ -157,7 +157,7 @@ int main(int argc, char* argv[]) {
     else if (atoi(argv[1]) == 5) {
         file = "test.bmp";
     }
-    //
+    */
     else {
         printf("Wrong Input!\n");
         exit(1);
@@ -326,11 +326,10 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
 
                     // 첫 번째 커널 행
                     float* weight_ptr = weight_base;
-                    float* input_ptr = input_base + (ih_base) * in_W + iw_base;
+                    float* input_ptr = input_base + (ih_base)*in_W + iw_base;
                     sum += input_ptr[0] * weight_ptr[0];
                     sum += input_ptr[1] * weight_ptr[1];
                     sum += input_ptr[2] * weight_ptr[2];
-                    sum += input_ptr[3] * weight_ptr[3];
 
                     // 두 번째 커널 행
                     weight_ptr += K;
@@ -338,7 +337,6 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                     sum += input_ptr[0] * weight_ptr[0];
                     sum += input_ptr[1] * weight_ptr[1];
                     sum += input_ptr[2] * weight_ptr[2];
-                    sum += input_ptr[3] * weight_ptr[3];
 
                     // 세 번째 커널 행
                     weight_ptr += K;
@@ -346,15 +344,6 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                     sum += input_ptr[0] * weight_ptr[0];
                     sum += input_ptr[1] * weight_ptr[1];
                     sum += input_ptr[2] * weight_ptr[2];
-                    sum += input_ptr[3] * weight_ptr[3];
-
-                    // 네 번째 커널 행
-                    weight_ptr += K;
-                    input_ptr = input_base + (ih_base + 3) * in_W + iw_base;
-                    sum += input_ptr[0] * weight_ptr[0];
-                    sum += input_ptr[1] * weight_ptr[1];
-                    sum += input_ptr[2] * weight_ptr[2];
-                    sum += input_ptr[3] * weight_ptr[3];
                 }
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
