@@ -264,7 +264,7 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float sum = 0.0f;
+                float32x4_t sum_vec = vdupq_n_f32(0.0f);
                 int ih_base = oh * S;
                 int iw_base = ow * S;
 
@@ -275,24 +275,26 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                     // 첫 번째 커널 행
                     float* weight_ptr = weight_base;
                     float* input_ptr = input_base + (ih_base)*in_W + iw_base;
-                    sum += input_ptr[0] * weight_ptr[0];
-                    sum += input_ptr[1] * weight_ptr[1];
-                    sum += input_ptr[2] * weight_ptr[2];
+                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr), weight_ptr[0]);
+                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr + 1), weight_ptr[1]);
+                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr + 2), weight_ptr[2]);
 
                     // 두 번째 커널 행
                     weight_ptr += K;
                     input_ptr = input_base + (ih_base + 1) * in_W + iw_base;
-                    sum += input_ptr[0] * weight_ptr[0];
-                    sum += input_ptr[1] * weight_ptr[1];
-                    sum += input_ptr[2] * weight_ptr[2];
+                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr), weight_ptr[0]);
+                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr + 1), weight_ptr[1]);
+                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr + 2), weight_ptr[2]);
 
                     // 세 번째 커널 행
                     weight_ptr += K;
                     input_ptr = input_base + (ih_base + 2) * in_W + iw_base;
-                    sum += input_ptr[0] * weight_ptr[0];
-                    sum += input_ptr[1] * weight_ptr[1];
-                    sum += input_ptr[2] * weight_ptr[2];
+                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr), weight_ptr[0]);
+                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr + 1), weight_ptr[1]);
+                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr + 2), weight_ptr[2]);
                 }
+
+                float sum = vaddvq_f32(sum_vec); // Sum the elements in the vector
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
         }
