@@ -276,12 +276,12 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                         float* weight_ptr = weight_base + kh * K;
                         float* input_ptr = input_base + (ih_base + kh) * in_W + iw_base;
 
-                        // Loop unrolling for better performance
+                        // Manually unrolling the loop for increased performance
                         for (int kw = 0; kw < K; kw += 4) {
                             sum += input_ptr[kw] * weight_ptr[kw];
-                            sum += input_ptr[kw + 1] * weight_ptr[kw + 1];
-                            sum += input_ptr[kw + 2] * weight_ptr[kw + 2];
-                            sum += input_ptr[kw + 3] * weight_ptr[kw + 3];
+                            if (kw + 1 < K) sum += input_ptr[kw + 1] * weight_ptr[kw + 1];
+                            if (kw + 2 < K) sum += input_ptr[kw + 2] * weight_ptr[kw + 2];
+                            if (kw + 3 < K) sum += input_ptr[kw + 3] * weight_ptr[kw + 3];
                         }
                     }
                 }
