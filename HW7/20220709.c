@@ -234,6 +234,7 @@ int main(int argc, char* argv[]) {
     printf("Total time (excluding Softmax): %9.3lf[us]\n", (double)end1 / CLOCKS_PER_US);
     printf("CAM time: %9.3lf[us]\n", (double)end2 / CLOCKS_PER_US);
     printf("Total time (including CAM): %9.3lf[us]\n", (double)(end1 + end2) / CLOCKS_PER_US);
+    printf("\n");
 
     printf("Log softmax value\n");
     for (int i = 0; i < CLASS; i++) {
