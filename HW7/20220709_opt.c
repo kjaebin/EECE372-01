@@ -82,26 +82,21 @@ int main(int argc, char* argv[]) {
         return -1;
     }
     fread(&net, sizeof(model), 1, weights);
-    fclose(weights);
-
-    // 디버그 출력: Conv1 weight와 bias 값 출력
-    printf("Conv1 weights and biases:\n");
-    for (int i = 0; i < I2_C * I1_C * CONV1_KERNAL * CONV1_KERNAL; i++) {
-        printf("weight[%d]: %f\n", i, net.conv1_weight[i]);
-    }
-    for (int i = 0; i < I2_C; i++) {
-        printf("bias[%d]: %f\n", i, net.conv1_bias[i]);
-    }
 
     char* file;
     if (atoi(argv[1]) == 0) {
+        /*          PUT YOUR CODE HERE                      */
+        /*          Serial communication                    */
         system("libcamera-still -e bmp --width 280 --height 280 -t 20000 -o image.bmp");
         file = "image.bmp";
-    } else if (atoi(argv[1]) == 1) {
+    }
+    else if (atoi(argv[1]) == 1) {
         file = "example_1.bmp";
-    } else if (atoi(argv[1]) == 2) {
+    }
+    else if (atoi(argv[1]) == 2) {
         file = "example_2.bmp";
-    } else {
+    }
+    else {
         printf("Wrong Input!\n");
         exit(1);
     }
@@ -126,7 +121,8 @@ int main(int argc, char* argv[]) {
         }
         feature_in = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
         resize_280_to_28(feature_resize, feature_in);
-    } else {
+    }
+    else {
         feature_in = stbi_load(file, &width, &height, &channels, 3);
         if (feature_in == NULL) {
             printf("Failed to load image: %s\n", file);
@@ -137,7 +133,14 @@ int main(int argc, char* argv[]) {
     int pred = 0;
     Gray_scale(feature_in, feature_gray);
     Normalized(feature_gray, feature_scaled);
-    /***************      Implement these functions      ********************/
+    
+    // 디버깅: feature_scaled 출력
+    printf("feature_scaled 데이터:\n");
+    for (int i = 0; i < I1_C * I1_H * I1_W; i++) {
+        printf("%f ", feature_scaled[i]);
+        if ((i + 1) % I1_W == 0) printf("\n");
+    }
+
     start1 = clock();
     start_padding = clock();
     Padding(feature_scaled, feature_padding1, I1_C, I1_H, I1_W);
@@ -156,6 +159,13 @@ int main(int argc, char* argv[]) {
     Conv_2d(feature_padding2, feature_conv2_out, I2_C, I2_H + 2, I2_W + 2, I3_C, I3_H, I3_W, CONV2_KERNAL, CONV2_STRIDE, net.conv2_weight, net.conv2_bias);
     end_conv2 = clock();
 
+    // 디버깅: feature_conv2_out 출력
+    printf("feature_conv2_out 데이터:\n");
+    for (int i = 0; i < I3_C * I3_H * I3_W; i++) {
+        printf("%f ", feature_conv2_out[i]);
+        if ((i + 1) % I3_W == 0) printf("\n");
+    }
+
     start_relu2 = clock();
     ReLU(feature_conv2_out, I3_C * I3_H * I3_W);
     end_relu2 = clock();
@@ -171,7 +181,7 @@ int main(int argc, char* argv[]) {
     pred = Get_pred(fc_out);
     Get_CAM(feature_conv2_out, cam, pred, net.fc_weight);
     end2 = clock() - start2;
-    /************************************************************************/
+
     save_image(feature_scaled, cam);
 
     setup_gpio();
@@ -197,7 +207,8 @@ int main(int argc, char* argv[]) {
     if (atoi(argv[1]) == 0) {
         free(feature_in);
         stbi_image_free(feature_resize);
-    } else {
+    }
+    else {
         stbi_image_free(feature_in);
     }
     return 0;
@@ -261,67 +272,39 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
     }
 }
 
-void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
-    // Output 초기화
-    float32x4_t zero_vector = vdupq_n_f32(0.0f);
-    for (int oc = 0; oc < out_C; oc++) {
-        for (int oh = 0; oh < out_H; oh++) {
-            for (int ow = 0; ow < out_W; ow += 4) {
-                vst1q_f32(&feature_out[oc * out_H * out_W + oh * out_W + ow], zero_vector);
-            }
-        }
-    }
-
-    // Convolution 연산
+void Conv_2d(float* input, float* output, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
+    int pad = (K - 1) / 2;
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float32x4_t partial_sum = vdupq_n_f32(0.0f); // Initialize partial_sum inside the loop
+                float partial_sum = 0.0;
                 for (int ic = 0; ic < in_C; ic++) {
                     for (int kh = 0; kh < K; kh++) {
-                        int ih = oh * S + kh;
-                        for (int kw = 0; kw < K; kw += 4) {
-                            int iw = ow * S + kw;
-                            if (iw + 4 <= in_W) {
-                                float32x4_t in_value = vld1q_f32(&feature_in[ic * in_H * in_W + ih * in_W + iw]);
-                                float32x4_t weight_value = vld1q_f32(&weight[oc * in_C * K * K + ic * K * K + kh * K + kw]);
-                                partial_sum = vmlaq_f32(partial_sum, in_value, weight_value);
-                                // Debug 출력
-                                if (oc == 0 && oh == 0 && ow == 0) {
-                                    printf("in_value: [%f, %f, %f, %f], weight_value: [%f, %f, %f, %f]\n",
-                                           vgetq_lane_f32(in_value, 0), vgetq_lane_f32(in_value, 1), vgetq_lane_f32(in_value, 2), vgetq_lane_f32(in_value, 3),
-                                           vgetq_lane_f32(weight_value, 0), vgetq_lane_f32(weight_value, 1), vgetq_lane_f32(weight_value, 2), vgetq_lane_f32(weight_value, 3));
-                                    printf("partial_sum: [%f, %f, %f, %f]\n",
-                                           vgetq_lane_f32(partial_sum, 0), vgetq_lane_f32(partial_sum, 1), vgetq_lane_f32(partial_sum, 2), vgetq_lane_f32(partial_sum, 3));
-                                }
-                            } else {
-                                float in_temp[4] = { 0 };
-                                float weight_temp[4] = { 0 };
-                                for (int i = 0; i < 4 && iw + i < in_W; i++) {
-                                    in_temp[i] = feature_in[ic * in_H * in_W + ih * in_W + iw + i];
-                                    weight_temp[i] = weight[oc * in_C * K * K + ic * K * K + kh * K + kw + i];
-                                }
-                                float32x4_t in_value = vld1q_f32(in_temp);
-                                float32x4_t weight_value = vld1q_f32(weight_temp);
-                                partial_sum = vmlaq_f32(partial_sum, in_value, weight_value);
-                                // Debug 출력
-                                if (oc == 0 && oh == 0 && ow == 0) {
-                                    printf("in_temp: [%f, %f, %f, %f], weight_temp: [%f, %f, %f, %f]\n",
-                                           in_temp[0], in_temp[1], in_temp[2], in_temp[3],
-                                           weight_temp[0], weight_temp[1], weight_temp[2], weight_temp[3]);
-                                    printf("partial_sum: [%f, %f, %f, %f]\n",
-                                           vgetq_lane_f32(partial_sum, 0), vgetq_lane_f32(partial_sum, 1), vgetq_lane_f32(partial_sum, 2), vgetq_lane_f32(partial_sum, 3));
-                                }
+                        for (int kw = 0; kw < K; kw++) {
+                            int ih = oh * S + kh - pad;
+                            int iw = ow * S + kw - pad;
+                            float in_value = 0.0;
+                            if (ih >= 0 && ih < in_H && iw >= 0 && iw < in_W) {
+                                in_value = input[(ic * in_H + ih) * in_W + iw];
                             }
+                            float weight_value = weight[((oc * in_C + ic) * K + kh) * K + kw];
+                            partial_sum += in_value * weight_value;
+
+                            // 디버깅: 각 단계별 값 출력
+                            printf("in_value: [%f, %f, %f, %f], weight_value: [%f, %f, %f, %f]\n",
+                                in_value, in_value, in_value, in_value,
+                                weight_value, weight_value, weight_value, weight_value);
+                            printf("partial_sum: [%f, %f, %f, %f]\n", partial_sum, partial_sum, partial_sum, partial_sum);
                         }
                     }
                 }
-                float sum[4];
-                vst1q_f32(sum, partial_sum);
-                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum[0] + sum[1] + sum[2] + sum[3] + bias[oc];
-                if (oc == 0 && oh == 0 && ow < 10) { // 일부 값만 출력
-                    printf("Conv2 - partial_sum: [%f, %f, %f, %f], feature_out[%d]: %f\n", sum[0], sum[1], sum[2], sum[3], ow, feature_out[oc * out_H * out_W + oh * out_W + ow]);
-                }
+                partial_sum += bias[oc];
+                output[(oc * out_H + oh) * out_W + ow] = partial_sum;
+
+                // 디버깅: 각 feature_out 값 출력
+                printf("Conv2 - partial_sum: [%f, %f, %f, %f], feature_out[%d]: %f\n",
+                    partial_sum, partial_sum, partial_sum, partial_sum,
+                    (oc * out_H + oh) * out_W + ow, output[(oc * out_H + oh) * out_W + ow]);
             }
         }
     }
