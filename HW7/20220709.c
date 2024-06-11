@@ -67,6 +67,36 @@ void save_image(float* feature_scaled, float* cam);
 void setup_gpio();
 void display_number(int number);
 
+#include <wiringSerial.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+int uart_fd;
+
+void init_uart() {
+    if ((uart_fd = serialOpen("/dev/ttyS0", 115200)) < 0) {
+        printf("Unable to open UART device\n");
+        exit(1);
+    }
+}
+
+void close_uart() {
+    close(uart_fd);
+}
+
+void send_data(unsigned char* data, int length) {
+    for (int i = 0; i < length; i++) {
+        serialPutchar(uart_fd, data[i]);
+    }
+}
+
+void receive_data(unsigned char* buffer, int length) {
+    for (int i = 0; i < length; i++) {
+        while (serialDataAvail(uart_fd) == 0);  // Wait until data is available
+        buffer[i] = serialGetchar(uart_fd);
+    }
+}
+
 int main(int argc, char* argv[]) {
     clock_t start1, end1, start2, end2;
 
@@ -81,10 +111,40 @@ int main(int argc, char* argv[]) {
 
     char* file;
     if (atoi(argv[1]) == 0) {
-        /*          PUT YOUR CODE HERE                      */
-        /*          Serial communication                    */
-        system("libcamera-still -e bmp --width 280 --height 280 -t 20000 -o image.bmp");
+        // Initialize UART
+        init_uart();
+
+        // Wait for capture command
+        char command;
+        while (1) {
+            while (serialDataAvail(uart_fd) == 0);
+            command = serialGetchar(uart_fd);
+            if (command == 'c' || command == 'C') {
+                break;
+            }
+        }
+
+        // Capture image using camera
+        system("libcamera-still -e bmp --width 280 --height 280 -o image.bmp");
         file = "image.bmp";
+
+        feature_resize = stbi_load(file, &width, &height, &channels, 3);
+        if (feature_resize == NULL) {
+            printf("Failed to load image: %s\n", file);
+            return -1;
+        }
+        feature_in = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
+        resize_280_to_28(feature_resize, feature_in);
+
+        // Send image data over UART
+        send_data(feature_in, 3 * I1_H * I1_W);
+
+        // Free memory
+        free(feature_in);
+        stbi_image_free(feature_resize);
+
+        // Close UART
+        close_uart();
     }
     else if (atoi(argv[1]) == 1) {
         file = "example_1.bmp";
