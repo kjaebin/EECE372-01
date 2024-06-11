@@ -312,6 +312,7 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
     int in_HW = in_H * in_W;
     int K2 = K * K;
+    int out_HW = out_H * out_W;
 
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
@@ -324,32 +325,33 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                     float* weight_base = &weight[oc * in_C * K2 + ic * K2];
                     float* input_base = &feature_in[ic * in_HW];
 
-                    asm volatile (
-                        "mov r0, %0\n\t"
-                        "mov r1, %1\n\t"
-                        "mov r2, %2\n\t"
-                        "vld1.f32 {q0}, [r0]!\n\t"
-                        "vld1.f32 {q1}, [r1]!\n\t"
-                        "vmul.f32 q2, q0, q1\n\t"
-                        "vld1.f32 {q0}, [r0]!\n\t"
-                        "vld1.f32 {q1}, [r1]!\n\t"
-                        "vmla.f32 q2, q0, q1\n\t"
-                        "vld1.f32 {q0}, [r0]\n\t"
-                        "vld1.f32 {q1}, [r1]\n\t"
-                        "vmla.f32 q2, q0, q1\n\t"
-                        "vpadd.f32 d0, d4, d5\n\t"
-                        "vpadd.f32 d0, d0, d0\n\t"
-                        "vst1.f32 {d0[0]}, [%3]"
-                        :
-                        : "r" (input_base), "r" (weight_base), "r" (K), "r" (&sum)
-                        : "r0", "r1", "r2", "q0", "q1", "q2", "d0", "memory"
-                    );
+                    // 첫 번째 커널 행
+                    float32x4_t sum_vec = vdupq_n_f32(0.0f);
+
+                    float32x4_t input_vec = vld1q_f32(&input_base[ih_base * in_W + iw_base]);
+                    float32x4_t weight_vec = vld1q_f32(&weight_base[0]);
+                    sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
+
+                    // 두 번째 커널 행
+                    input_vec = vld1q_f32(&input_base[(ih_base + 1) * in_W + iw_base]);
+                    weight_vec = vld1q_f32(&weight_base[3]);
+                    sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
+
+                    // 세 번째 커널 행
+                    input_vec = vld1q_f32(&input_base[(ih_base + 2) * in_W + iw_base]);
+                    weight_vec = vld1q_f32(&weight_base[6]);
+                    sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
+
+                    float sum_arr[4];
+                    vst1q_f32(sum_arr, sum_vec);
+                    sum += sum_arr[0] + sum_arr[1] + sum_arr[2] + sum_arr[3];
                 }
-                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
+                feature_out[oc * out_HW + oh * out_W + ow] = sum + bias[oc];
             }
         }
     }
 }
+
 
 void ReLU(float* feature_in, int elem_num) {
     float32x4_t zero_vector = vdupq_n_f32(0.0f); // Initialize zero vector
