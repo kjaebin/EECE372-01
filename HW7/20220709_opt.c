@@ -312,7 +312,6 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
     int in_HW = in_H * in_W;
     int K2 = K * K;
-    int out_HW = out_H * out_W;
 
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
@@ -325,33 +324,27 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                     float* weight_base = &weight[oc * in_C * K2 + ic * K2];
                     float* input_base = &feature_in[ic * in_HW];
 
-                    // 첫 번째 커널 행
-                    float32x4_t sum_vec = vdupq_n_f32(0.0f);
+                    for (int kh = 0; kh < K; kh++) {
+                        float* weight_ptr = weight_base + kh * K;
+                        float* input_ptr = input_base + (ih_base + kh) * in_W + iw_base;
 
-                    float32x4_t input_vec = vld1q_f32(&input_base[ih_base * in_W + iw_base]);
-                    float32x4_t weight_vec = vld1q_f32(&weight_base[0]);
-                    sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
-
-                    // 두 번째 커널 행
-                    input_vec = vld1q_f32(&input_base[(ih_base + 1) * in_W + iw_base]);
-                    weight_vec = vld1q_f32(&weight_base[3]);
-                    sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
-
-                    // 세 번째 커널 행
-                    input_vec = vld1q_f32(&input_base[(ih_base + 2) * in_W + iw_base]);
-                    weight_vec = vld1q_f32(&weight_base[6]);
-                    sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
-
-                    float sum_arr[4];
-                    vst1q_f32(sum_arr, sum_vec);
-                    sum += sum_arr[0] + sum_arr[1] + sum_arr[2] + sum_arr[3];
+                        asm volatile (
+                            "vld1.32 {q0}, [%[input_ptr]] \n"   // Load input
+                            "vld1.32 {q1}, [%[weight_ptr]] \n"  // Load weights
+                            "vmul.f32 q2, q0, q1 \n"            // Multiply
+                            "vpadd.f32 d4, d4, d5 \n"           // Pairwise add
+                            "vadd.f32 %P[sum], %P[sum], d4[0] \n" // Add to sum
+                            : [sum] "+w" (sum) 
+                            : [input_ptr] "r" (input_ptr), [weight_ptr] "r" (weight_ptr)
+                            : "q0", "q1", "q2", "d4", "d5"
+                        );
+                    }
                 }
-                feature_out[oc * out_HW + oh * out_W + ow] = sum + bias[oc];
+                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
         }
     }
 }
-
 
 void ReLU(float* feature_in, int elem_num) {
     float32x4_t zero_vector = vdupq_n_f32(0.0f); // Initialize zero vector
