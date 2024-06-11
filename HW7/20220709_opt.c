@@ -265,18 +265,17 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
                 float sum = 0.0f;
+
                 int ih_base = oh * S;
                 int iw_base = ow * S;
 
                 for (int ic = 0; ic < in_C; ic++) {
                     float* weight_base = &weight[oc * in_C * K * K + ic * K * K];
                     float* input_base = &feature_in[ic * in_H * in_W];
-                    
+
                     for (int kh = 0; kh < K; kh++) {
                         for (int kw = 0; kw < K; kw++) {
-                            float in_val = input_base[(ih_base + kh) * in_W + (iw_base + kw)];
-                            float wt_val = weight_base[kh * K + kw];
-                            sum += in_val * wt_val;
+                            sum += input_base[(ih_base + kh) * in_W + (iw_base + kw)] * weight_base[kh * K + kw];
                         }
                     }
                 }
