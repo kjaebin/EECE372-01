@@ -201,7 +201,7 @@ int main(int argc, char* argv[]) {
 }
 
 void resize_280_to_28(unsigned char* in, unsigned char* out) {
-    /*            DO NOT MODIFY            */
+    /*            DO NOT MODIFIY            */
     int x, y, c;
     for (y = 0; y < 28; y++) {
         for (x = 0; x < 28; x++) {
@@ -214,7 +214,7 @@ void resize_280_to_28(unsigned char* in, unsigned char* out) {
 }
 
 void Gray_scale(unsigned char* feature_in, unsigned char* feature_out) {
-    /*            DO NOT MODIFY            */
+    /*            DO NOT MODIFIY            */
     for (int h = 0; h < I1_H; h++) {
         for (int w = 0; w < I1_W; w++) {
             int sum = 0;
@@ -224,14 +224,16 @@ void Gray_scale(unsigned char* feature_in, unsigned char* feature_out) {
             feature_out[I1_W * h + w] = sum / 3;
         }
     }
+
     return;
 }
 
 void Normalized(unsigned char* feature_in, float* feature_out) {
-    /*            DO NOT MODIFY            */
+    /*            DO NOT MODIFIY            */
     for (int i = 0; i < I1_H * I1_W; i++) {
         feature_out[i] = ((float)feature_in[i]) / 255.0;
     }
+
     return;
 }
 
@@ -321,7 +323,7 @@ void Linear(float* feature_in, float* feature_out, float* weight, float* bias) {
 }
 
 void Log_softmax(float* activation) {
-    /*          PUT YOUR CODE HERE          */
+    /*            DO NOT MODIFIY            */
     double max = activation[0];
     double sum = 0.0;
 
@@ -339,6 +341,8 @@ void Log_softmax(float* activation) {
     for (int i = 0; i < CLASS; i++) {
         activation[i] = log(activation[i] / sum);
     }
+
+    return;
 }
 
 int Get_pred(float* activation) {
@@ -369,7 +373,7 @@ void Get_CAM(float* activation, float* cam, int pred, float* weight) {
 }
 
 void save_image(float* feature_scaled, float* cam) {
-    /*            DO NOT MODIFY            */
+    /*            DO NOT MODIFIY            */
     float* output = (float*)malloc(sizeof(float) * 3 * I1_H * I1_W);
     unsigned char* output_bmp = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
     unsigned char* output_bmp_resized = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * 14 * I1_W * 14);
@@ -406,6 +410,7 @@ void save_image(float* feature_scaled, float* cam) {
 
     free(output);
     free(output_bmp);
+    return;
 }
 
 void setup_gpio() {
