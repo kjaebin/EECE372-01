@@ -309,8 +309,6 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
     }
 }
 
-#include <arm_neon.h>
-
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
     int in_HW = in_H * in_W;
     int K2 = K * K;
@@ -318,7 +316,7 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float32x4_t sum_vec = vdupq_n_f32(0.0f);
+                float sum = 0.0f;
                 int ih_base = oh * S;
                 int iw_base = ow * S;
 
@@ -331,33 +329,25 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                     float* input_ptr = input_base + (ih_base) * in_W + iw_base;
 
                     for (int i = 0; i < K; i++) {
-                        float32x4_t input_vec = vld1q_f32(input_ptr + i * 4);
-                        float32x4_t weight_vec = vld1q_f32(weight_ptr + i * 4);
-                        sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
+                        sum += input_ptr[i] * weight_ptr[i];
                     }
 
                     // 두 번째 커널 행
                     weight_ptr += K;
                     input_ptr = input_base + (ih_base + 1) * in_W + iw_base;
-
+                    
                     for (int i = 0; i < K; i++) {
-                        float32x4_t input_vec = vld1q_f32(input_ptr + i * 4);
-                        float32x4_t weight_vec = vld1q_f32(weight_ptr + i * 4);
-                        sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
+                        sum += input_ptr[i] * weight_ptr[i];
                     }
 
                     // 세 번째 커널 행
                     weight_ptr += K;
                     input_ptr = input_base + (ih_base + 2) * in_W + iw_base;
-
+                    
                     for (int i = 0; i < K; i++) {
-                        float32x4_t input_vec = vld1q_f32(input_ptr + i * 4);
-                        float32x4_t weight_vec = vld1q_f32(weight_ptr + i * 4);
-                        sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
+                        sum += input_ptr[i] * weight_ptr[i];
                     }
                 }
-
-                float sum = vaddvq_f32(sum_vec);
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
         }
