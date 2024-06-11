@@ -85,6 +85,8 @@ void cheeze(const char* filename) {
 
 int main(int argc, char* argv[]) {
     clock_t start1, end1, start2, end2;
+    clock_t start_padding, end_padding, start_conv1, end_conv1, start_relu1, end_relu1;
+    clock_t start_conv2, end_conv2, start_relu2, end_relu2, start_fc, end_fc;
 
     model net;
     FILE* weights;
