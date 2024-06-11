@@ -227,7 +227,7 @@ int main(int argc, char* argv[]) {
     setup_gpio();
     display_number(pred);
 
- /* printf("Zero Padding time: %9.3lf[us]\n", (double)(end_padding - start_padding) / CLOCKS_PER_US);
+    printf("Zero Padding time: %9.3lf[us]\n", (double)(end_padding - start_padding) / CLOCKS_PER_US);
     printf("Conv1 time: %9.3lf[us]\n", (double)(end_conv1 - start_conv1) / CLOCKS_PER_US);
     printf("Conv2 time: %9.3lf[us]\n", (double)(end_conv2 - start_conv2) / CLOCKS_PER_US);
     printf("ReLU1 time: %9.3lf[us]\n", (double)(end_relu1 - start_relu1) / CLOCKS_PER_US);
@@ -236,7 +236,7 @@ int main(int argc, char* argv[]) {
     printf("Total time (excluding Softmax): %9.3lf[us]\n", (double)end1 / CLOCKS_PER_US);
     printf("CAM time: %9.3lf[us]\n", (double)end2 / CLOCKS_PER_US);
     printf("Total time (including CAM): %9.3lf[us]\n", (double)(end1 + end2) / CLOCKS_PER_US);
-    printf("\n");  */
+    printf("\n"); 
 
     printf("Log softmax value\n");
     for (int i = 0; i < CLASS; i++) {
