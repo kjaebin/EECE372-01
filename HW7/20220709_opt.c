@@ -326,8 +326,10 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
 
                     for (int kh = 0; kh < K; kh++) {
                         for (int kw = 0; kw < K; kw += 4) {
+                            // Load 4 elements from input and weight
                             float32x4_t input_vec = vld1q_f32(input_ptr + kw);
                             float32x4_t weight_vec = vld1q_f32(weight_ptr + kw);
+                            // Multiply and accumulate
                             sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
                         }
                         weight_ptr += K;
