@@ -272,26 +272,16 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                     float* weight_base = &weight[oc * in_C * K * K + ic * K * K];
                     float* input_base = &feature_in[ic * in_H * in_W];
 
-                    // 첫 번째 커널 행
-                    float* weight_ptr = weight_base;
-                    float* input_ptr = input_base + (ih_base)*in_W + iw_base;
-                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr), weight_ptr[0]);
-                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr + 1), weight_ptr[1]);
-                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr + 2), weight_ptr[2]);
-
-                    // 두 번째 커널 행
-                    weight_ptr += K;
-                    input_ptr = input_base + (ih_base + 1) * in_W + iw_base;
-                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr), weight_ptr[0]);
-                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr + 1), weight_ptr[1]);
-                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr + 2), weight_ptr[2]);
-
-                    // 세 번째 커널 행
-                    weight_ptr += K;
-                    input_ptr = input_base + (ih_base + 2) * in_W + iw_base;
-                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr), weight_ptr[0]);
-                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr + 1), weight_ptr[1]);
-                    sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr + 2), weight_ptr[2]);
+                    for (int kh = 0; kh < K; kh++) {
+                        for (int kw = 0; kw < K; kw += 4) {
+                            float* weight_ptr = weight_base + kh * K + kw;
+                            float* input_ptr = input_base + (ih_base + kh) * in_W + iw_base + kw;
+                            
+                            float32x4_t weight_vec = vld1q_f32(weight_ptr);
+                            float32x4_t input_vec = vld1q_f32(input_ptr);
+                            sum_vec = vmlaq_f32(sum_vec, weight_vec, input_vec);
+                        }
+                    }
                 }
 
                 // 벡터 요소 합산
