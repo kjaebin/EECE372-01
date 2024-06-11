@@ -69,8 +69,6 @@ void display_number(int number);
 
 int main(int argc, char* argv[]) {
     clock_t start1, end1, start2, end2;
-    clock_t start_padding, end_padding, start_conv1, end_conv1, start_relu1, end_relu1;
-    clock_t start_conv2, end_conv2, start_relu2, end_relu2, start_fc, end_fc;
 
     model net;
     FILE* weights;
@@ -133,30 +131,15 @@ int main(int argc, char* argv[]) {
     Normalized(feature_gray, feature_scaled);
     /***************      Implement these functions      ********************/
     start1 = clock();
-    start_padding = clock();
     Padding(feature_scaled, feature_padding1, I1_C, I1_H, I1_W);
-    end_padding = clock();
-
-    start_conv1 = clock();
     Conv_2d(feature_padding1, feature_conv1_out, I1_C, I1_H + 2, I1_W + 2, I2_C, I2_H, I2_W, CONV1_KERNAL, CONV1_STRIDE, net.conv1_weight, net.conv1_bias);
-    end_conv1 = clock();
-
-    start_relu1 = clock();
     ReLU(feature_conv1_out, I2_C * I2_H * I2_W);
-    end_relu1 = clock();
 
-    start_conv2 = clock();
     Padding(feature_conv1_out, feature_padding2, I2_C, I2_H, I2_W);
     Conv_2d(feature_padding2, feature_conv2_out, I2_C, I2_H + 2, I2_W + 2, I3_C, I3_H, I3_W, CONV2_KERNAL, CONV2_STRIDE, net.conv2_weight, net.conv2_bias);
-    end_conv2 = clock();
-
-    start_relu2 = clock();
     ReLU(feature_conv2_out, I3_C * I3_H * I3_W);
-    end_relu2 = clock();
 
-    start_fc = clock();
     Linear(feature_conv2_out, fc_out, net.fc_weight, net.fc_bias);
-    end_fc = clock();
     end1 = clock() - start1;
 
     Log_softmax(fc_out);
@@ -170,16 +153,6 @@ int main(int argc, char* argv[]) {
 
     setup_gpio();
     display_number(pred);
-
-    printf("Zero Padding time: %9.3lf[us]\n", (double)(end_padding - start_padding) / CLOCKS_PER_US);
-    printf("Conv1 time: %9.3lf[us]\n", (double)(end_conv1 - start_conv1) / CLOCKS_PER_US);
-    printf("Conv2 time: %9.3lf[us]\n", (double)(end_conv2 - start_conv2) / CLOCKS_PER_US);
-    printf("ReLU1 time: %9.3lf[us]\n", (double)(end_relu1 - start_relu1) / CLOCKS_PER_US);
-    printf("ReLU2 time: %9.3lf[us]\n", (double)(end_relu2 - start_relu2) / CLOCKS_PER_US);
-    printf("FC time: %9.3lf[us]\n", (double)(end_fc - start_fc) / CLOCKS_PER_US);
-    printf("Total time (excluding Softmax): %9.3lf[us]\n", (double)end1 / CLOCKS_PER_US);
-    printf("CAM time: %9.3lf[us]\n", (double)end2 / CLOCKS_PER_US);
-    printf("Total time (including CAM): %9.3lf[us]\n", (double)(end1 + end2) / CLOCKS_PER_US);
 
     printf("Log softmax value\n");
     for (int i = 0; i < CLASS; i++) {
@@ -199,7 +172,7 @@ int main(int argc, char* argv[]) {
 }
 
 void resize_280_to_28(unsigned char* in, unsigned char* out) {
-    /*            DO NOT MODIFY            */
+    /*            DO NOT MODIFIY            */
     int x, y, c;
     for (y = 0; y < 28; y++) {
         for (x = 0; x < 28; x++) {
@@ -212,7 +185,7 @@ void resize_280_to_28(unsigned char* in, unsigned char* out) {
 }
 
 void Gray_scale(unsigned char* feature_in, unsigned char* feature_out) {
-    /*            DO NOT MODIFY            */
+    /*            DO NOT MODIFIY            */
     for (int h = 0; h < I1_H; h++) {
         for (int w = 0; w < I1_W; w++) {
             int sum = 0;
@@ -222,14 +195,16 @@ void Gray_scale(unsigned char* feature_in, unsigned char* feature_out) {
             feature_out[I1_W * h + w] = sum / 3;
         }
     }
+
     return;
 }
 
 void Normalized(unsigned char* feature_in, float* feature_out) {
-    /*            DO NOT MODIFY            */
+    /*            DO NOT MODIFIY            */
     for (int i = 0; i < I1_H * I1_W; i++) {
         feature_out[i] = ((float)feature_in[i]) / 255.0;
     }
+
     return;
 }
 
@@ -299,7 +274,7 @@ void Linear(float* feature_in, float* feature_out, float* weight, float* bias) {
 }
 
 void Log_softmax(float* activation) {
-    /*          PUT YOUR CODE HERE          */
+    /*            DO NOT MODIFIY            */
     double max = activation[0];
     double sum = 0.0;
 
@@ -317,6 +292,8 @@ void Log_softmax(float* activation) {
     for (int i = 0; i < CLASS; i++) {
         activation[i] = log(activation[i] / sum);
     }
+
+    return;
 }
 
 int Get_pred(float* activation) {
@@ -347,7 +324,7 @@ void Get_CAM(float* activation, float* cam, int pred, float* weight) {
 }
 
 void save_image(float* feature_scaled, float* cam) {
-    /*            DO NOT MODIFY            */
+    /*            DO NOT MODIFIY            */
     float* output = (float*)malloc(sizeof(float) * 3 * I1_H * I1_W);
     unsigned char* output_bmp = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
     unsigned char* output_bmp_resized = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * 14 * I1_W * 14);
@@ -384,6 +361,7 @@ void save_image(float* feature_scaled, float* cam) {
 
     free(output);
     free(output_bmp);
+    return;
 }
 
 void setup_gpio() {
