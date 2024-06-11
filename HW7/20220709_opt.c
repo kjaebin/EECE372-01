@@ -294,7 +294,11 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                     sum_vec = vmlaq_n_f32(sum_vec, vld1q_f32(input_ptr + 2), weight_ptr[2]);
                 }
 
-                float sum = vaddvq_f32(sum_vec); // Sum the elements in the vector
+                // 벡터 요소 합산
+                float32x2_t sum_pair = vpadd_f32(vget_low_f32(sum_vec), vget_high_f32(sum_vec));
+                sum_pair = vpadd_f32(sum_pair, sum_pair);
+                float sum = vget_lane_f32(sum_pair, 0);
+
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
         }
