@@ -261,26 +261,30 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
 }
 
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
-    for (int oc = 0; oc < out_C; oc++) {
-        for (int oh = 0; oh < out_H; oh++) {
-            for (int ow = 0; ow < out_W; ow++) {
-                float sum = 0.0f;
-                int ih_base = oh * S;
-                int iw_base = ow * S;
+    int block_size = 4;  // 블로킹 크기를 설정합니다. 이 크기는 실험적으로 조정할 수 있습니다.
 
-                for (int ic = 0; ic < in_C; ic++) {
-                    float* weight_base = &weight[oc * in_C * K * K + ic * K * K];
-                    float* input_base = &feature_in[ic * in_H * in_W];
-                    
-                    for (int kh = 0; kh < K; kh++) {
-                        float* weight_ptr = weight_base + kh * K;
-                        float* input_ptr = input_base + (ih_base + kh) * in_W + iw_base;
-                        for (int kw = 0; kw < K; kw++) {
-                            sum += input_ptr[kw] * weight_ptr[kw];
+    for (int oc = 0; oc < out_C; oc++) {
+        for (int oh = 0; oh < out_H; oh += block_size) {
+            for (int ow = 0; ow < out_W; ow += block_size) {
+                for (int b_oh = 0; b_oh < block_size && (oh + b_oh) < out_H; b_oh++) {
+                    for (int b_ow = 0; b_ow < block_size && (ow + b_ow) < out_W; b_ow++) {
+                        float sum = 0.0f;
+                        int ih_base = (oh + b_oh) * S;
+                        int iw_base = (ow + b_ow) * S;
+
+                        for (int ic = 0; ic < in_C; ic++) {
+                            float* weight_base = &weight[oc * in_C * K * K + ic * K * K];
+                            float* input_base = &feature_in[ic * in_H * in_W];
+
+                            for (int kh = 0; kh < K; kh++) {
+                                for (int kw = 0; kw < K; kw++) {
+                                    sum += input_base[(ih_base + kh) * in_W + (iw_base + kw)] * weight_base[kh * K + kw];
+                                }
+                            }
                         }
+                        feature_out[oc * out_H * out_W + (oh + b_oh) * out_W + (ow + b_ow)] = sum + bias[oc];
                     }
                 }
-                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
         }
     }
