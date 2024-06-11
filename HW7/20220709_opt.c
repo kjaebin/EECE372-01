@@ -311,12 +311,13 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
 
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
     int in_HW = in_H * in_W;
+    int out_HW = out_H * out_W;
     int K2 = K * K;
 
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float32x4_t sum_vec = vdupq_n_f32(0.0f);
+                float sum = 0.0f;
                 int ih_base = oh * S;
                 int iw_base = ow * S;
 
@@ -326,24 +327,13 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
 
                     for (int kh = 0; kh < K; kh++) {
                         for (int kw = 0; kw < K; kw++) {
-                            // Load individual elements if needed for alignment
-                            float input_val = input_ptr[kw];
-                            float weight_val = weight_ptr[kw];
-
-                            // Perform the multiply and accumulate operation
-                            sum_vec = vmlaq_n_f32(sum_vec, vdupq_n_f32(input_val), weight_val);
+                            sum += input_ptr[kw] * weight_ptr[kw];
                         }
                         weight_ptr += K;
                         input_ptr += in_W;
                     }
                 }
-
-                // Horizontal add sum_vec
-                float sum_array[4];
-                vst1q_f32(sum_array, sum_vec);
-                float sum = sum_array[0] + sum_array[1] + sum_array[2] + sum_array[3] + bias[oc];
-
-                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum;
+                feature_out[oc * out_HW + oh * out_W + ow] = sum + bias[oc];
             }
         }
     }
