@@ -89,7 +89,12 @@ int main(int argc, char* argv[]) {
     model net;
     FILE* weights;
     weights = fopen("./weights.bin", "rb");
+    if (weights == NULL) {
+        printf("Error opening weights file.\n");
+        return -1;
+    }
     fread(&net, sizeof(model), 1, weights);
+    fclose(weights);
 
     char* file;
     if (atoi(argv[1]) == 0) {
