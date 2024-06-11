@@ -109,6 +109,10 @@ int main(int argc, char* argv[]) {
     }
     fread(&net, sizeof(model), 1, weights);
 
+unsigned char *feature_resize;
+int width, height, channels;
+unsigned char *feature_in;
+    
     char* file;
     if (atoi(argv[1]) == 0) {
         // Initialize UART
