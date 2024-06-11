@@ -274,39 +274,52 @@ void Padding(float* input, float* output, int C, int H, int W) {
 
 void Conv_2d(float* input, float* output, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
     int pad = (K - 1) / 2;
+
     // output 배열을 0으로 초기화합니다.
     for (int i = 0; i < out_C * out_H * out_W; i++) {
         output[i] = 0.0;
     }
 
+    float32x4_t zero_vector = vdupq_n_f32(0.0f);
+
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float partial_sum = 0.0;
+                float32x4_t partial_sum = zero_vector;
+
                 for (int ic = 0; ic < in_C; ic++) {
                     for (int kh = 0; kh < K; kh++) {
                         for (int kw = 0; kw < K; kw++) {
                             int ih = oh * S + kh - pad;
                             int iw = ow * S + kw - pad;
-                            float in_value = 0.0;
+
                             if (ih >= 0 && ih < in_H && iw >= 0 && iw < in_W) {
-                                in_value = input[(ic * in_H + ih) * in_W + iw];
+                                float* weight_ptr = &weight[((oc * in_C + ic) * K + kh) * K + kw];
+                                float* input_ptr = &input[(ic * in_H + ih) * in_W + iw];
+
+                                float32x4_t weight_value = vld1q_dup_f32(weight_ptr);
+                                float32x4_t input_value = vld1q_f32(input_ptr);
+
+                                partial_sum = vmlaq_f32(partial_sum, input_value, weight_value);
                             }
-                            float weight_value = weight[((oc * in_C + ic) * K + kh) * K + kw];
-                            partial_sum += in_value * weight_value;
                         }
                     }
                 }
-                partial_sum += bias[oc];
-                output[(oc * out_H + oh) * out_W + ow] = partial_sum;
 
-                // 디버깅: 각 feature_out 값 출력 (일부 요소만)
-                if (oh == 0 && ow < 3) {
-                    printf("Conv2 - partial_sum: %f, feature_out[%d]: %f\n",
-                        partial_sum, (oc * out_H + oh) * out_W + ow, output[(oc * out_H + oh) * out_W + ow]);
-                }
+                // partial_sum의 각 요소를 더해서 scalar로 만듭니다.
+                float sum = vgetq_lane_f32(partial_sum, 0) + vgetq_lane_f32(partial_sum, 1) + vgetq_lane_f32(partial_sum, 2) + vgetq_lane_f32(partial_sum, 3);
+                sum += bias[oc];
+
+                output[(oc * out_H + oh) * out_W + ow] = sum;
             }
         }
+    }
+
+    // 디버깅: 각 feature_out 값 출력 (일부 요소만)
+    printf("Conv2 - feature_out 데이터:\n");
+    for (int i = 0; i < out_C * out_H * out_W; i++) {
+        printf("%f ", output[i]);
+        if ((i + 1) % out_W == 0) printf("\n");
     }
 }
 
