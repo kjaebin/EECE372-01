@@ -8,6 +8,13 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <termios.h>
+#include <fcntl.h>
+#include <errno.h>
+
 #include "stb_image.h"
 #include "stb_image_resize2.h"
 #include "stb_image_write.h"
@@ -27,7 +34,7 @@
 #define I2_H 14
 #define I2_W 14
 
-// Conv2 out dim
+// Convw out dim
 #define I3_C 1
 #define I3_H 14
 #define I3_W 14
@@ -50,8 +57,6 @@ typedef struct _model {
     float fc_bias[FC_OUT];
 } model;
 
-int pin_num[] = { 29, 28, 23, 22, 21, 27, 26 };
-
 void resize_280_to_28(unsigned char* in, unsigned char* out);
 void Gray_scale(unsigned char* feature_in, unsigned char* feature_out);
 void Normalized(unsigned char* feature_in, float* feature_out);
@@ -64,94 +69,64 @@ void Log_softmax(float* activation);
 int Get_pred(float* activation);
 void Get_CAM(float* activation, float* cam, int pred, float* weight);
 void save_image(float* feature_scaled, float* cam);
+
 void setup_gpio();
 void display_number(int number);
 
-#include <wiringSerial.h>
-#include <fcntl.h>
-#include <unistd.h>
-
-int uart_fd;
-
-void init_uart() {
-    if ((uart_fd = serialOpen("/dev/ttyS0", 115200)) < 0) {
-        printf("Unable to open UART device\n");
-        exit(1);
-    }
-}
-
-void close_uart() {
-    close(uart_fd);
-}
-
-void send_data(unsigned char* data, int length) {
-    for (int i = 0; i < length; i++) {
-        serialPutchar(uart_fd, data[i]);
-    }
-}
-
-void receive_data(unsigned char* buffer, int length) {
-    for (int i = 0; i < length; i++) {
-        while (serialDataAvail(uart_fd) == 0);  // Wait until data is available
-        buffer[i] = serialGetchar(uart_fd);
-    }
+void cheeze(const char* filename) {
+    char command[256];
+    snprintf(command, sizeof(command), "libcamera-still -o %s", filename);
+    system(command);
 }
 
 int main(int argc, char* argv[]) {
     clock_t start1, end1, start2, end2;
-    clock_t start_padding, end_padding, start_conv1, end_conv1, start_relu1, end_relu1;
-    clock_t start_conv2, end_conv2, start_relu2, end_relu2, start_fc, end_fc;
 
     model net;
     FILE* weights;
     weights = fopen("./weights.bin", "rb");
-    if (weights == NULL) {
-        printf("Error opening weights file.\n");
-        return -1;
-    }
     fread(&net, sizeof(model), 1, weights);
-    fclose(weights);
-
-    unsigned char* feature_resize;
-    int width, height, channels;
-    unsigned char* feature_in;
 
     char* file;
     if (atoi(argv[1]) == 0) {
-        // Initialize UART
-        init_uart();
+        /* Camera mode with serial communication */
+        int fd;
+        struct termios newtio;
+        char buf[256];
+        char nameofcheezeee[] = "image.bmp";
 
-        // Wait for capture command
-        char command;
-        while (1) {
-            while (serialDataAvail(uart_fd) == 0);
-            command = serialGetchar(uart_fd);
-            if (command == 'c' || command == 'C') {
-                break;
-            }
-        }
-
-        // Capture image using camera
-        system("libcamera-still -e bmp --width 280 --height 280 -o image.bmp");
-        file = "image.bmp";
-
-        feature_resize = stbi_load(file, &width, &height, &channels, 3);
-        if (feature_resize == NULL) {
-            printf("Failed to load image: %s\n", file);
+        fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
+        if (fd < 0) {
+            fprintf(stderr, "failed to open port: %s.\r\n", strerror(errno));
+            printf("Make sure you are executing in sudo.\r\n");
             return -1;
         }
-        feature_in = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
-        resize_280_to_28(feature_resize, feature_in);
+        usleep(250000);
 
-        // Send image data over UART
-        send_data(feature_in, 3 * I1_H * I1_W);
+        memset(&newtio, 0, sizeof(newtio));
+        newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+        newtio.c_iflag = ICRNL;
+        newtio.c_oflag = 0;
+        newtio.c_lflag = 0;
+        newtio.c_cc[VTIME] = 0;
+        newtio.c_cc[VMIN] = 1;
 
-        // Free memory
-        free(feature_in);
-        stbi_image_free(feature_resize);
+        tcflush(fd, TCIFLUSH);
+        tcsetattr(fd, TCSANOW, &newtio);
 
-        // Close UART
-        close_uart();
+        printf("Waiting for 'c' or 'C' command to take a picture...\n");
+        while (1) {
+            int n = read(fd, buf, sizeof(buf));
+            if (n > 0) {
+                buf[n] = '\0';
+                if (buf[0] == 'c' || buf[0] == 'C') {
+                    cheeze(nameofcheezeee);
+                    file = nameofcheezeee;
+                    break;
+                }
+            }
+        }
+        close(fd);
     }
     else if (atoi(argv[1]) == 1) {
         file = "example_1.bmp";
@@ -164,6 +139,8 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
+    unsigned char* feature_in;
+    unsigned char* feature_resize;
     unsigned char feature_gray[I1_C * I1_H * I1_W];
     float feature_scaled[I1_C * I1_H * I1_W];
     float feature_padding1[I1_C * (I1_H + 2) * (I1_W + 2)];
@@ -172,22 +149,15 @@ int main(int argc, char* argv[]) {
     float feature_conv2_out[I3_C * I3_H * I3_W];
     float fc_out[1 * CLASS];
     float cam[1 * I3_H * I3_W];
+    int channels, height, width;
 
     if (atoi(argv[1]) == 0) {
         feature_resize = stbi_load(file, &width, &height, &channels, 3);
-        if (feature_resize == NULL) {
-            printf("Failed to load image: %s\n", file);
-            return -1;
-        }
         feature_in = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
         resize_280_to_28(feature_resize, feature_in);
     }
     else {
         feature_in = stbi_load(file, &width, &height, &channels, 3);
-        if (feature_in == NULL) {
-            printf("Failed to load image: %s\n", file);
-            return -1;
-        }
     }
 
     int pred = 0;
@@ -195,30 +165,15 @@ int main(int argc, char* argv[]) {
     Normalized(feature_gray, feature_scaled);
     /***************      Implement these functions      ********************/
     start1 = clock();
-    start_padding = clock();
     Padding(feature_scaled, feature_padding1, I1_C, I1_H, I1_W);
-    end_padding = clock();
-
-    start_conv1 = clock();
     Conv_2d(feature_padding1, feature_conv1_out, I1_C, I1_H + 2, I1_W + 2, I2_C, I2_H, I2_W, CONV1_KERNAL, CONV1_STRIDE, net.conv1_weight, net.conv1_bias);
-    end_conv1 = clock();
-
-    start_relu1 = clock();
     ReLU(feature_conv1_out, I2_C * I2_H * I2_W);
-    end_relu1 = clock();
 
-    start_conv2 = clock();
     Padding(feature_conv1_out, feature_padding2, I2_C, I2_H, I2_W);
     Conv_2d(feature_padding2, feature_conv2_out, I2_C, I2_H + 2, I2_W + 2, I3_C, I3_H, I3_W, CONV2_KERNAL, CONV2_STRIDE, net.conv2_weight, net.conv2_bias);
-    end_conv2 = clock();
-
-    start_relu2 = clock();
     ReLU(feature_conv2_out, I3_C * I3_H * I3_W);
-    end_relu2 = clock();
 
-    start_fc = clock();
     Linear(feature_conv2_out, fc_out, net.fc_weight, net.fc_bias);
-    end_fc = clock();
     end1 = clock() - start1;
 
     Log_softmax(fc_out);
@@ -230,18 +185,10 @@ int main(int argc, char* argv[]) {
     /************************************************************************/
     save_image(feature_scaled, cam);
 
+    /*          PUT YOUR CODE HERE                      */
     setup_gpio();
     display_number(pred);
-
-    printf("Zero Padding time: %9.3lf[us]\n", (double)(end_padding - start_padding) / CLOCKS_PER_US);
-    printf("Conv1 time: %9.3lf[us]\n", (double)(end_conv1 - start_conv1) / CLOCKS_PER_US);
-    printf("Conv2 time: %9.3lf[us]\n", (double)(end_conv2 - start_conv2) / CLOCKS_PER_US);
-    printf("ReLU1 time: %9.3lf[us]\n", (double)(end_relu1 - start_relu1) / CLOCKS_PER_US);
-    printf("ReLU2 time: %9.3lf[us]\n", (double)(end_relu2 - start_relu2) / CLOCKS_PER_US);
-    printf("FC time: %9.3lf[us]\n", (double)(end_fc - start_fc) / CLOCKS_PER_US);
-    printf("Total time (excluding Softmax): %9.3lf[us]\n", (double)end1 / CLOCKS_PER_US);
-    printf("CAM time: %9.3lf[us]\n", (double)end2 / CLOCKS_PER_US);
-    printf("Total time (including CAM): %9.3lf[us]\n", (double)(end1 + end2) / CLOCKS_PER_US);
+    /*          7-segment                               */
 
     printf("Log softmax value\n");
     for (int i = 0; i < CLASS; i++) {
@@ -250,7 +197,14 @@ int main(int argc, char* argv[]) {
     printf("Prediction: %d\n", pred);
     printf("Execution time: %9.3lf[us]\n", (double)(end1 + end2) / CLOCKS_PER_US);
 
-    stbi_image_free(feature_in);
+    fclose(weights);
+    if (atoi(argv[1]) == 0) {
+        free(feature_in);
+        stbi_image_free(feature_resize);
+    }
+    else {
+        stbi_image_free(feature_in);
+    }
     return 0;
 }
 
