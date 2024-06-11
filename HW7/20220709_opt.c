@@ -264,25 +264,22 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float32x4_t sum_vec = vdupq_n_f32(0.0f);
+                float sum = 0.0f;
                 int ih_base = oh * S;
                 int iw_base = ow * S;
 
                 for (int ic = 0; ic < in_C; ic++) {
+                    float* weight_base = &weight[oc * in_C * K * K + ic * K * K];
+                    float* input_base = &feature_in[ic * in_H * in_W];
+                    
                     for (int kh = 0; kh < K; kh++) {
-                        for (int kw = 0; kw < K; kw += 4) {
-                            float32x4_t input_vec = vld1q_f32(&feature_in[ic * in_H * in_W + (ih_base + kh) * in_W + (iw_base + kw)]);
-                            float32x4_t weight_vec = vld1q_f32(&weight[oc * in_C * K * K + ic * K * K + kh * K + kw]);
-                            sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
+                        for (int kw = 0; kw < K; kw++) {
+                            float in_val = input_base[(ih_base + kh) * in_W + (iw_base + kw)];
+                            float wt_val = weight_base[kh * K + kw];
+                            sum += in_val * wt_val;
                         }
                     }
                 }
-
-                // 수평 덧셈
-                float sum_arr[4];
-                vst1q_f32(sum_arr, sum_vec);
-                float sum = sum_arr[0] + sum_arr[1] + sum_arr[2] + sum_arr[3];
-
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
         }
