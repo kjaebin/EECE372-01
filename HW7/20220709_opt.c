@@ -261,6 +261,7 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
 }
 
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
+    int block_size = 4; // 블록 크기 설정
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
@@ -268,13 +269,17 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                 int ih_base = oh * S;
                 int iw_base = ow * S;
 
-                for (int ic = 0; ic < in_C; ic++) {
-                    float* weight_base = &weight[oc * in_C * K * K + ic * K * K];
-                    float* input_base = &feature_in[ic * in_H * in_W];
+                for (int ic = 0; ic < in_C; ic += block_size) {
+                    for (int ic_block = 0; ic_block < block_size; ic_block++) {
+                        if (ic + ic_block >= in_C) break;
 
-                    for (int kh = 0; kh < K; kh++) {
-                        for (int kw = 0; kw < K; kw++) {
-                            sum += input_base[(ih_base + kh) * in_W + (iw_base + kw)] * weight_base[kh * K + kw];
+                        float* weight_base = &weight[oc * in_C * K * K + (ic + ic_block) * K * K];
+                        float* input_base = &feature_in[(ic + ic_block) * in_H * in_W];
+
+                        for (int kh = 0; kh < K; kh++) {
+                            for (int kw = 0; kw < K; kw++) {
+                                sum += input_base[(ih_base + kh) * in_W + (iw_base + kw)] * weight_base[kh * K + kw];
+                            }
                         }
                     }
                 }
