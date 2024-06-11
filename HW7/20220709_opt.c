@@ -274,14 +274,14 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
 
                             // Inline assembly to perform the multiply and accumulate
                             asm volatile (
-                                "vldr s0, [%1]         \n" // Load in_val to s0
-                                "vldr s1, [%2]         \n" // Load wt_val to s1
-                                "vmul.f32 s2, s0, s1   \n" // Multiply s0 and s1, store result in s2
-                                "vldr s3, [%0]         \n" // Load sum to s3
-                                "vadd.f32 s3, s3, s2   \n" // Add s2 to s3
-                                "vstr s3, [%0]         \n" // Store s3 back to sum
-                                : "+r" (sum)           // Output
-                                : "r" (&in_val), "r" (&wt_val) // Input
+                                "flds s0, %1            \n" // Load in_val to s0
+                                "flds s1, %2            \n" // Load wt_val to s1
+                                "fmuls s2, s0, s1       \n" // Multiply s0 and s1, store result in s2
+                                "flds s3, %0            \n" // Load sum to s3
+                                "fadds s3, s3, s2       \n" // Add s2 to s3
+                                "fsts s3, %0            \n" // Store s3 back to sum
+                                : "+m" (sum)           // Output
+                                : "m" (in_val), "m" (wt_val) // Input
                                 : "s0", "s1", "s2", "s3" // Clobbered registers
                             );
                         }
