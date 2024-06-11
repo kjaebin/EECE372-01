@@ -20,6 +20,8 @@
 #include "stb_image_write.h"
 #include <wiringPi.h>
 
+#define BAUDRATE B1000000
+
 #define CLOCKS_PER_US ((double)CLOCKS_PER_SEC / 1000000)
 
 #define CLASS 10
