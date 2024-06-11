@@ -271,14 +271,27 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                 for (int ic = 0; ic < in_C; ic++) {
                     float* weight_base = &weight[oc * in_C * K * K + ic * K * K];
                     float* input_base = &feature_in[ic * in_H * in_W];
-                    
-                    for (int kh = 0; kh < K; kh++) {
-                        float* weight_ptr = weight_base + kh * K;
-                        float* input_ptr = input_base + (ih_base + kh) * in_W + iw_base;
-                        for (int kw = 0; kw < K; kw++) {
-                            sum += input_ptr[kw] * weight_ptr[kw];
-                        }
-                    }
+
+                    // 첫 번째 커널 행
+                    float* weight_ptr = weight_base;
+                    float* input_ptr = input_base + (ih_base) * in_W + iw_base;
+                    sum += input_ptr[0] * weight_ptr[0];
+                    sum += input_ptr[1] * weight_ptr[1];
+                    sum += input_ptr[2] * weight_ptr[2];
+
+                    // 두 번째 커널 행
+                    weight_ptr += K;
+                    input_ptr = input_base + (ih_base + 1) * in_W + iw_base;
+                    sum += input_ptr[0] * weight_ptr[0];
+                    sum += input_ptr[1] * weight_ptr[1];
+                    sum += input_ptr[2] * weight_ptr[2];
+
+                    // 세 번째 커널 행
+                    weight_ptr += K;
+                    input_ptr = input_base + (ih_base + 2) * in_W + iw_base;
+                    sum += input_ptr[0] * weight_ptr[0];
+                    sum += input_ptr[1] * weight_ptr[1];
+                    sum += input_ptr[2] * weight_ptr[2];
                 }
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
