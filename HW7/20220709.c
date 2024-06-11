@@ -112,9 +112,9 @@ int main(int argc, char* argv[]) {
     fread(&net, sizeof(model), 1, weights);
     fclose(weights);
 
-    unsigned char *feature_resize;
+    unsigned char* feature_resize;
     int width, height, channels;
-    unsigned char *feature_in;
+    unsigned char* feature_in;
 
     char* file;
     if (atoi(argv[1]) == 0) {
@@ -310,37 +310,21 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
 }
 
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
+    /*          PUT YOUR CODE HERE          */
+    // Conv_2d input : float *feature_in
+    // Conv_2d output: float *feature_out
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float sum = 0.0f;
-                int ih_base = oh * S;
-                int iw_base = ow * S;
-
+                float sum = 0;
                 for (int ic = 0; ic < in_C; ic++) {
-                    float* weight_base = &weight[oc * in_C * K * K + ic * K * K];
-                    float* input_base = &feature_in[ic * in_H * in_W];
-
-                    // 첫 번째 커널 행
-                    float* weight_ptr = weight_base;
-                    float* input_ptr = input_base + (ih_base) * in_W + iw_base;
-                    sum += input_ptr[0] * weight_ptr[0];
-                    sum += input_ptr[1] * weight_ptr[1];
-                    sum += input_ptr[2] * weight_ptr[2];
-
-                    // 두 번째 커널 행
-                    weight_ptr += K;
-                    input_ptr = input_base + (ih_base + 1) * in_W + iw_base;
-                    sum += input_ptr[0] * weight_ptr[0];
-                    sum += input_ptr[1] * weight_ptr[1];
-                    sum += input_ptr[2] * weight_ptr[2];
-
-                    // 세 번째 커널 행
-                    weight_ptr += K;
-                    input_ptr = input_base + (ih_base + 2) * in_W + iw_base;
-                    sum += input_ptr[0] * weight_ptr[0];
-                    sum += input_ptr[1] * weight_ptr[1];
-                    sum += input_ptr[2] * weight_ptr[2];
+                    for (int kh = 0; kh < K; kh++) {
+                        for (int kw = 0; kw < K; kw++) {
+                            int ih = oh * S + kh;
+                            int iw = ow * S + kw;
+                            sum += feature_in[ic * in_H * in_W + ih * in_W + iw] * weight[oc * in_C * K * K + ic * K * K + kh * K + kw];
+                        }
+                    }
                 }
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
