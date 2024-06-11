@@ -10,10 +10,19 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <termios.h>
+#include <fcntl.h>
+#include <errno.h>
+
 #include "stb_image.h"
 #include "stb_image_resize2.h"
 #include "stb_image_write.h"
 #include <wiringPi.h>
+
+#define BAUDRATE B1000000
 
 #define CLOCKS_PER_US ((double)CLOCKS_PER_SEC / 1000000)
 
@@ -66,37 +75,14 @@ void Log_softmax(float* activation);
 int Get_pred(float* activation);
 void Get_CAM(float* activation, float* cam, int pred, float* weight);
 void save_image(float* feature_scaled, float* cam);
+
 void setup_gpio();
 void display_number(int number);
 
-#include <wiringSerial.h>
-#include <fcntl.h>
-#include <unistd.h>
-
-int uart_fd;
-
-void init_uart() {
-    if ((uart_fd = serialOpen("/dev/ttyS0", 115200)) < 0) {
-        printf("Unable to open UART device\n");
-        exit(1);
-    }
-}
-
-void close_uart() {
-    close(uart_fd);
-}
-
-void send_data(unsigned char* data, int length) {
-    for (int i = 0; i < length; i++) {
-        serialPutchar(uart_fd, data[i]);
-    }
-}
-
-void receive_data(unsigned char* buffer, int length) {
-    for (int i = 0; i < length; i++) {
-        while (serialDataAvail(uart_fd) == 0);  // Wait until data is available
-        buffer[i] = serialGetchar(uart_fd);
-    }
+void cheeze(const char* filename) {
+    char command[256];
+    snprintf(command, sizeof(command), "libcamera-still -o %s", filename);
+    system(command);
 }
 
 int main(int argc, char* argv[]) {
@@ -114,46 +100,46 @@ int main(int argc, char* argv[]) {
     fread(&net, sizeof(model), 1, weights);
     fclose(weights);
 
-    unsigned char* feature_resize;
-    int width, height, channels;
-    unsigned char* feature_in;
-
     char* file;
     if (atoi(argv[1]) == 0) {
-        // Initialize UART
-        init_uart();
+        /* Camera mode with serial communication */
+        int fd;
+        struct termios newtio;
+        char buf[256];
+        char nameofcheezeee[] = "image.bmp";
 
-        // Wait for capture command
-        char command;
-        while (1) {
-            while (serialDataAvail(uart_fd) == 0);
-            command = serialGetchar(uart_fd);
-            if (command == 'c' || command == 'C') {
-                break;
-            }
-        }
-
-        // Capture image using camera
-        system("libcamera-still -e bmp --width 280 --height 280 -o image.bmp");
-        file = "image.bmp";
-
-        feature_resize = stbi_load(file, &width, &height, &channels, 3);
-        if (feature_resize == NULL) {
-            printf("Failed to load image: %s\n", file);
+        fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
+        if (fd < 0) {
+            fprintf(stderr, "failed to open port: %s.\r\n", strerror(errno));
+            printf("Make sure you are executing in sudo.\r\n");
             return -1;
         }
-        feature_in = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
-        resize_280_to_28(feature_resize, feature_in);
+        usleep(250000);
 
-        // Send image data over UART
-        send_data(feature_in, 3 * I1_H * I1_W);
+        memset(&newtio, 0, sizeof(newtio));
+        newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+        newtio.c_iflag = ICRNL;
+        newtio.c_oflag = 0;
+        newtio.c_lflag = 0;
+        newtio.c_cc[VTIME] = 0;
+        newtio.c_cc[VMIN] = 1;
 
-        // Free memory
-        free(feature_in);
-        stbi_image_free(feature_resize);
+        tcflush(fd, TCIFLUSH);
+        tcsetattr(fd, TCSANOW, &newtio);
 
-        // Close UART
-        close_uart();
+        printf("Waiting for 'c' or 'C' command to take a picture...\n");
+        while (1) {
+            int n = read(fd, buf, sizeof(buf));
+            if (n > 0) {
+                buf[n] = '\0';
+                if (buf[0] == 'c' || buf[0] == 'C') {
+                    cheeze(nameofcheezeee);
+                    file = nameofcheezeee;
+                    break;
+                }
+            }
+        }
+        close(fd);
     }
     else if (atoi(argv[1]) == 1) {
         file = "example_1.bmp";
@@ -166,6 +152,8 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
+    unsigned char* feature_in;
+    unsigned char* feature_resize;
     unsigned char feature_gray[I1_C * I1_H * I1_W];
     float feature_scaled[I1_C * I1_H * I1_W];
     float feature_padding1[I1_C * (I1_H + 2) * (I1_W + 2)];
@@ -174,22 +162,15 @@ int main(int argc, char* argv[]) {
     float feature_conv2_out[I3_C * I3_H * I3_W];
     float fc_out[1 * CLASS];
     float cam[1 * I3_H * I3_W];
+    int channels, height, width;
 
     if (atoi(argv[1]) == 0) {
         feature_resize = stbi_load(file, &width, &height, &channels, 3);
-        if (feature_resize == NULL) {
-            printf("Failed to load image: %s\n", file);
-            return -1;
-        }
         feature_in = (unsigned char*)malloc(sizeof(unsigned char) * 3 * I1_H * I1_W);
         resize_280_to_28(feature_resize, feature_in);
     }
     else {
         feature_in = stbi_load(file, &width, &height, &channels, 3);
-        if (feature_in == NULL) {
-            printf("Failed to load image: %s\n", file);
-            return -1;
-        }
     }
 
     int pred = 0;
@@ -255,7 +236,6 @@ int main(int argc, char* argv[]) {
     stbi_image_free(feature_in);
     return 0;
 }
-
 
 void resize_280_to_28(unsigned char* in, unsigned char* out) {
     /*            DO NOT MODIFIY            */
