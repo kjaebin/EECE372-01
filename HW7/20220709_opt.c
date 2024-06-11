@@ -412,47 +412,17 @@ void Log_softmax(float* activation) {
 }
 
 int Get_pred(float* activation) {
+    /*          PUT YOUR CODE HERE          */
+    // Get_pred input : float *activation
+    // Get_pred output: int pred
     int pred = 0;
     float max_val = activation[0];
-
-    // NEON 벡터를 사용하여 초기 최대값 설정
-    float32x4_t max_vec = vdupq_n_f32(max_val);
-    int32x4_t index_vec = vdupq_n_s32(0);
-    int indices[4] = {0, 1, 2, 3};
-
-    // 벡터화된 최대값 비교
-    for (int i = 4; i < CLASS; i += 4) {
-        float32x4_t cur_vec = vld1q_f32(&activation[i]);
-        uint32x4_t mask = vcgtq_f32(cur_vec, max_vec);
-
-        // 최대값 벡터 갱신
-        max_vec = vbslq_f32(mask, cur_vec, max_vec);
-
-        // 인덱스 벡터 갱신
-        int32x4_t cur_index_vec = {i, i+1, i+2, i+3};
-        index_vec = vbslq_s32(mask, cur_index_vec, index_vec);
-    }
-
-    // max_vec와 index_vec에서 최대값과 그 인덱스를 추출
-    float max_vals[4];
-    vst1q_f32(max_vals, max_vec);
-    vst1q_s32(indices, index_vec);
-
-    for (int i = 0; i < 4; i++) {
-        if (max_vals[i] > max_val) {
-            max_val = max_vals[i];
-            pred = indices[i];
-        }
-    }
-
-    // 남은 요소 비교
-    for (int i = (CLASS / 4) * 4; i < CLASS; i++) {
+    for (int i = 1; i < CLASS; i++) {
         if (activation[i] > max_val) {
             max_val = activation[i];
             pred = i;
         }
     }
-
     return pred;
 }
 
