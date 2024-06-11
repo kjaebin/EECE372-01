@@ -324,26 +324,26 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                     float* weight_base = &weight[oc * in_C * K2 + ic * K2];
                     float* input_base = &feature_in[ic * in_HW];
 
-                    // 첫 번째 커널 행
-                    float* weight_ptr = weight_base;
-                    float* input_ptr = input_base + (ih_base)*in_W + iw_base;
-                    sum += input_ptr[0] * weight_ptr[0];
-                    sum += input_ptr[1] * weight_ptr[1];
-                    sum += input_ptr[2] * weight_ptr[2];
-
-                    // 두 번째 커널 행
-                    weight_ptr += K;
-                    input_ptr = input_base + (ih_base + 1) * in_W + iw_base;
-                    sum += input_ptr[0] * weight_ptr[0];
-                    sum += input_ptr[1] * weight_ptr[1];
-                    sum += input_ptr[2] * weight_ptr[2];
-
-                    // 세 번째 커널 행
-                    weight_ptr += K;
-                    input_ptr = input_base + (ih_base + 2) * in_W + iw_base;
-                    sum += input_ptr[0] * weight_ptr[0];
-                    sum += input_ptr[1] * weight_ptr[1];
-                    sum += input_ptr[2] * weight_ptr[2];
+                    asm volatile (
+                        "mov r0, %0\n\t"
+                        "mov r1, %1\n\t"
+                        "mov r2, %2\n\t"
+                        "vld1.f32 {q0}, [r0]!\n\t"
+                        "vld1.f32 {q1}, [r1]!\n\t"
+                        "vmul.f32 q2, q0, q1\n\t"
+                        "vld1.f32 {q0}, [r0]!\n\t"
+                        "vld1.f32 {q1}, [r1]!\n\t"
+                        "vmla.f32 q2, q0, q1\n\t"
+                        "vld1.f32 {q0}, [r0]\n\t"
+                        "vld1.f32 {q1}, [r1]\n\t"
+                        "vmla.f32 q2, q0, q1\n\t"
+                        "vpadd.f32 d0, d4, d5\n\t"
+                        "vpadd.f32 d0, d0, d0\n\t"
+                        "vst1.f32 {d0[0]}, [%3]"
+                        :
+                        : "r" (input_base), "r" (weight_base), "r" (K), "r" (&sum)
+                        : "r0", "r1", "r2", "q0", "q1", "q2", "d0", "memory"
+                    );
                 }
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
