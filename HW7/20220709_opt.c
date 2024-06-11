@@ -312,7 +312,6 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
     int in_HW = in_H * in_W;
     int K2 = K * K;
-    int out_HW = out_H * out_W;
 
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
@@ -325,16 +324,39 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                     float* weight_base = &weight[oc * in_C * K2 + ic * K2];
                     float* input_base = &feature_in[ic * in_HW];
 
-                    for (int kh = 0; kh < K; kh++) {
-                        float* weight_ptr = weight_base + kh * K;
-                        float* input_ptr = input_base + (ih_base + kh) * in_W + iw_base;
+                    // 첫 번째 커널 행
+                    float* weight_ptr = weight_base;
+                    float* input_ptr = input_base + (ih_base) * in_W + iw_base;
+                    sum += input_ptr[0] * weight_ptr[0];
+                    sum += input_ptr[1] * weight_ptr[1];
+                    sum += input_ptr[2] * weight_ptr[2];
+                    sum += input_ptr[3] * weight_ptr[3];
 
-                        for (int kw = 0; kw < K; kw++) {
-                            sum += input_ptr[kw] * weight_ptr[kw];
-                        }
-                    }
+                    // 두 번째 커널 행
+                    weight_ptr += K;
+                    input_ptr = input_base + (ih_base + 1) * in_W + iw_base;
+                    sum += input_ptr[0] * weight_ptr[0];
+                    sum += input_ptr[1] * weight_ptr[1];
+                    sum += input_ptr[2] * weight_ptr[2];
+                    sum += input_ptr[3] * weight_ptr[3];
+
+                    // 세 번째 커널 행
+                    weight_ptr += K;
+                    input_ptr = input_base + (ih_base + 2) * in_W + iw_base;
+                    sum += input_ptr[0] * weight_ptr[0];
+                    sum += input_ptr[1] * weight_ptr[1];
+                    sum += input_ptr[2] * weight_ptr[2];
+                    sum += input_ptr[3] * weight_ptr[3];
+
+                    // 네 번째 커널 행
+                    weight_ptr += K;
+                    input_ptr = input_base + (ih_base + 3) * in_W + iw_base;
+                    sum += input_ptr[0] * weight_ptr[0];
+                    sum += input_ptr[1] * weight_ptr[1];
+                    sum += input_ptr[2] * weight_ptr[2];
+                    sum += input_ptr[3] * weight_ptr[3];
                 }
-                feature_out[oc * out_HW + oh * out_W + ow] = sum + bias[oc];
+                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
         }
     }
