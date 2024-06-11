@@ -272,16 +272,9 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                     float* weight_base = &weight[oc * in_C * K * K + ic * K * K];
                     float* input_base = &feature_in[ic * in_H * in_W];
 
-                    // 메모리 프리패칭
-                    __builtin_prefetch(weight_base, 0, 1);
-                    __builtin_prefetch(input_base + ih_base * in_W + iw_base, 0, 1);
-
                     for (int kh = 0; kh < K; kh++) {
-                        float* weight_ptr = weight_base + kh * K;
-                        float* input_ptr = input_base + (ih_base + kh) * in_W + iw_base;
-
                         for (int kw = 0; kw < K; kw++) {
-                            sum += input_ptr[kw] * weight_ptr[kw];
+                            sum += input_base[(ih_base + kh) * in_W + (iw_base + kw)] * weight_base[kh * K + kw];
                         }
                     }
                 }
