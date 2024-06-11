@@ -262,25 +262,29 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float32x4_t sum_vec = vdupq_n_f32(0.0f); // Initialize sum vector to zero
+                float sum = 0;
 
                 for (int ic = 0; ic < in_C; ic++) {
                     for (int kh = 0; kh < K; kh++) {
                         for (int kw = 0; kw < K; kw++) {
                             int ih = oh * S + kh;
                             int iw = ow * S + kw;
-                            float32x4_t input_vec = vld1q_f32(&feature_in[ic * in_H * in_W + ih * in_W + iw]);
-                            float32x4_t weight_vec = vld1q_f32(&weight[oc * in_C * K * K + ic * K * K + kh * K + kw]);
+                            float in_val = feature_in[ic * in_H * in_W + ih * in_W + iw];
+                            float wt_val = weight[oc * in_C * K * K + ic * K * K + kh * K + kw];
 
-                            // Multiply and accumulate
-                            sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
+                            // Inline assembly to perform the multiply and accumulate
+                            asm volatile (
+                                "vmov s0, %1         \n" // Move in_val to s0
+                                "vmov s1, %2         \n" // Move wt_val to s1
+                                "vmul.f32 s2, s0, s1 \n" // Multiply s0 and s1, store result in s2
+                                "vadd.f32 %0, %0, s2 \n" // Add s2 to sum
+                                : "=r" (sum)           // Output
+                                : "r" (in_val), "r" (wt_val), "0" (sum) // Input
+                                : "s0", "s1", "s2"    // Clobbered registers
+                            );
                         }
                     }
                 }
-                
-                // Perform horizontal addition to get the final sum
-                float32x2_t sum_pair = vadd_f32(vget_low_f32(sum_vec), vget_high_f32(sum_vec));
-                float sum = vget_lane_f32(vpadd_f32(sum_pair, sum_pair), 0);
 
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
