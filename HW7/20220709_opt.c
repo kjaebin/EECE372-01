@@ -279,9 +279,12 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                         }
                     }
                 }
-                
+
                 // Horizontal addition of sum_vec
-                float sum = vaddvq_f32(sum_vec);
+                float sum_arr[4];
+                vst1q_f32(sum_arr, sum_vec);
+                float sum = sum_arr[0] + sum_arr[1] + sum_arr[2] + sum_arr[3];
+                
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
         }
