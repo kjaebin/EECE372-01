@@ -274,8 +274,11 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                     float* input_base = &feature_in[ic * in_H * in_W];
 
                     for (int kh = 0; kh < K; kh++) {
-                        for (int kw = 0; kw < K; kw++) {
+                        for (int kw = 0; kw < K; kw += 4) { // Loop unrolling by 4
                             sum += input_base[(ih_base + kh) * in_W + (iw_base + kw)] * weight_base[kh * K + kw];
+                            sum += input_base[(ih_base + kh) * in_W + (iw_base + kw + 1)] * weight_base[kh * K + kw + 1];
+                            sum += input_base[(ih_base + kh) * in_W + (iw_base + kw + 2)] * weight_base[kh * K + kw + 2];
+                            sum += input_base[(ih_base + kh) * in_W + (iw_base + kw + 3)] * weight_base[kh * K + kw + 3];
                         }
                     }
                 }
@@ -315,7 +318,8 @@ void Linear(float* feature_in, float* feature_out, float* weight, float* bias) {
         }
 
         // Horizontal addition of the 4 elements in the vector
-        float sum = vaddvq_f32(partial_sum);
+        float32x2_t sum_pair = vadd_f32(vget_low_f32(partial_sum), vget_high_f32(partial_sum));
+        float sum = vget_lane_f32(vpadd_f32(sum_pair, sum_pair), 0);
 
         feature_out[i] = sum + bias[i]; // Add bias
     }
