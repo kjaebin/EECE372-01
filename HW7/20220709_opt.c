@@ -413,28 +413,43 @@ void Log_softmax(float* activation) {
 
 int Get_pred(float* activation) {
     int pred = 0;
-    float32x4_t max_vec = vld1q_f32(activation); // 첫 4개 요소를 로드
     float max_val = activation[0];
 
-    // 4개씩 비교
-    for (int i = 4; i < CLASS; i += 4) {
+    // NEON 벡터를 사용하여 초기 최대값 설정
+    float32x4_t max_vec = vdupq_n_f32(max_val);
+    int32x4_t index_vec = vdupq_n_s32(0);
+
+    // 벡터화된 최대값 비교
+    for (int i = 0; i < CLASS; i += 4) {
         float32x4_t cur_vec = vld1q_f32(&activation[i]);
-        uint32x4_t mask = vcgtq_f32(cur_vec, max_vec); // cur_vec > max_vec
-        max_vec = vbslq_f32(mask, cur_vec, max_vec); // 큰 값을 max_vec에 저장
+        uint32x4_t mask = vcgtq_f32(cur_vec, max_vec);
+
+        // 최대값 벡터 갱신
+        max_vec = vbslq_f32(mask, cur_vec, max_vec);
+
+        // 인덱스 벡터 갱신
+        int32x4_t cur_index_vec = vsetq_lane_s32(i, vdupq_n_s32(0), 0);
+        cur_index_vec = vsetq_lane_s32(i+1, cur_index_vec, 1);
+        cur_index_vec = vsetq_lane_s32(i+2, cur_index_vec, 2);
+        cur_index_vec = vsetq_lane_s32(i+3, cur_index_vec, 3);
+        index_vec = vbslq_s32(mask, cur_index_vec, index_vec);
     }
 
-    // max_vec의 4개 요소 중 최대값을 찾음
+    // max_vec와 index_vec에서 최대값과 그 인덱스를 추출
     float max_vals[4];
+    int indices[4];
     vst1q_f32(max_vals, max_vec);
+    vst1q_s32(indices, index_vec);
+
     for (int i = 0; i < 4; i++) {
         if (max_vals[i] > max_val) {
             max_val = max_vals[i];
-            pred = (max_val == max_vals[0]) ? 0 : (max_val == max_vals[1]) ? 1 : (max_val == max_vals[2]) ? 2 : 3;
+            pred = indices[i];
         }
     }
 
-    // 남은 요소를 비교
-    for (int i = CLASS - (CLASS % 4); i < CLASS; i++) {
+    // 남은 요소 비교
+    for (int i = (CLASS / 4) * 4; i < CLASS; i++) {
         if (activation[i] > max_val) {
             max_val = activation[i];
             pred = i;
