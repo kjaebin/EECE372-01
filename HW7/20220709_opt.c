@@ -262,8 +262,7 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float sum = 0.0f;
-
+                float32x4_t sum_vec = vdupq_n_f32(0.0f); // Vectorized sum
                 int ih_base = oh * S;
                 int iw_base = ow * S;
 
@@ -272,11 +271,17 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                     float* input_base = &feature_in[ic * in_H * in_W];
 
                     for (int kh = 0; kh < K; kh++) {
-                        for (int kw = 0; kw < K; kw++) {
-                            sum += input_base[(ih_base + kh) * in_W + (iw_base + kw)] * weight_base[kh * K + kw];
+                        for (int kw = 0; kw < K; kw += 4) {
+                            int iw_idx = iw_base + kw;
+                            float32x4_t input_vec = vld1q_f32(&input_base[(ih_base + kh) * in_W + iw_idx]);
+                            float32x4_t weight_vec = vld1q_f32(&weight_base[kh * K + kw]);
+                            sum_vec = vmlaq_f32(sum_vec, input_vec, weight_vec);
                         }
                     }
                 }
+                
+                // Horizontal addition of sum_vec
+                float sum = vaddvq_f32(sum_vec);
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
         }
