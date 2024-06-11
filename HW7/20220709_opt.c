@@ -313,8 +313,8 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     int in_HW = in_H * in_W;
     int K2 = K * K;
 
-    #pragma omp parallel for collapse(3)
     for (int oc = 0; oc < out_C; oc++) {
+        float* out_ptr = feature_out + oc * out_H * out_W;
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
                 float sum = bias[oc];
@@ -333,7 +333,7 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                         input_ptr += in_W;
                     }
                 }
-                feature_out[oc * out_H * out_W + oh * out_W + ow] = sum;
+                out_ptr[oh * out_W + ow] = sum;
             }
         }
     }
