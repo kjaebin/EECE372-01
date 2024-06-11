@@ -270,13 +270,6 @@ void Padding(float* input, float* output, int C, int H, int W) {
             }
         }
     }
-
-    // 디버깅: Zero Padding 후 출력 확인
-    printf("Zero Padding Output:\n");
-    for (int i = 0; i < C * (H + 2 * pad) * (W + 2 * pad); i++) {
-        printf("%f ", output[i]);
-    }
-    printf("\n");
 }
 
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
@@ -302,15 +295,6 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     }
 }
 
-    // 디버깅: 각 feature_out 값 출력 (일부 요소만)
-    printf("Conv2 - feature_out 데이터:\n");
-    for (int i = 0; i < out_C * out_H * out_W; i++) {
-        printf("%f ", output[i]);
-        if ((i + 1) % out_W == 0) printf("\n");
-    }
-}
-
-// ReLU 함수 디버깅 추가
 void ReLU(float* input, int size) {
     float32x4_t zero_vector = vdupq_n_f32(0.0f); // Initialize zero vector
     int i;
@@ -328,16 +312,8 @@ void ReLU(float* input, int size) {
             feature_in[i] = 0;
         }
     }
-    
-    // 디버깅: ReLU 후 출력 확인
-    printf("ReLU Output:\n");
-    for (int i = 0; i < size; i++) {
-        printf("%f ", input[i]);
-    }
-    printf("\n");
 }
 
-// Linear 함수 디버깅 추가
 void Linear(float* input, float* output, float* weight, float* bias) {
     for (int i = 0; i < CLASS; i++) {
         float32x4_t partial_sum = vdupq_n_f32(0.0f); // Initialize partial sum vector to 0
@@ -354,13 +330,6 @@ void Linear(float* input, float* output, float* weight, float* bias) {
 
         feature_out[i] = sum + bias[i]; // Add bias
     }
-
-    // 디버깅: Linear 후 출력 확인
-    printf("Linear Output:\n");
-    for (int i = 0; i < CLASS; i++) {
-        printf("%f ", output[i]);
-    }
-    printf("\n");
 }
 
 void Log_softmax(float* activation) {
