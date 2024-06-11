@@ -249,27 +249,27 @@ void Normalized(unsigned char* feature_in, float* feature_out) {
     return;
 }
 
-void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
-    /* NEON을 사용하여 zero padding 구현 */
-    float32x4_t zero_vector = vdupq_n_f32(0.0); // 0으로 구성된 벡터 생성
-
+void Padding(float* input, float* output, int C, int H, int W) {
+    int pad = 1; // Assuming padding size is 1
     for (int c = 0; c < C; c++) {
-        // 상단과 하단 패딩 (0번째 행과 마지막 행)
-        for (int i = 0; i < (W + 2) / 4; i++) {
-            vst1q_f32(&feature_out[c * (H + 2) * (W + 2) + 0 * (W + 2) + i * 4], zero_vector); // 0번째 행
-            vst1q_f32(&feature_out[c * (H + 2) * (W + 2) + (H + 1) * (W + 2) + i * 4], zero_vector); // 마지막 행
-        }
-
-        // 중앙 패딩 (1번째 행부터 H번째 행)
-        for (int h = 1; h <= H; h++) {
-            feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + 0] = 0; // 0번째 열
-            feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + (W + 1)] = 0; // 마지막 열
-            for (int w = 1; w <= W; w += 4) {
-                float32x4_t neon_in = vld1q_f32(&feature_in[c * H * W + (h - 1) * W + (w - 1)]);
-                vst1q_f32(&feature_out[c * (H + 2) * (W + 2) + h * (W + 2) + w], neon_in);
+        for (int h = 0; h < H + 2 * pad; h++) {
+            for (int w = 0; w < W + 2 * pad; w++) {
+                if (h < pad || h >= H + pad || w < pad || w >= W + pad) {
+                    output[c * (H + 2 * pad) * (W + 2 * pad) + h * (W + 2 * pad) + w] = 0;
+                } else {
+                    output[c * (H + 2 * pad) * (W + 2 * pad) + h * (W + 2 * pad) + w] =
+                        input[c * H * W + (h - pad) * W + (w - pad)];
+                }
             }
         }
     }
+
+    // 디버깅: Zero Padding 후 출력 확인
+    printf("Zero Padding Output:\n");
+    for (int i = 0; i < C * (H + 2 * pad) * (W + 2 * pad); i++) {
+        printf("%f ", output[i]);
+    }
+    printf("\n");
 }
 
 void Conv_2d(float* input, float* output, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
@@ -290,61 +290,56 @@ void Conv_2d(float* input, float* output, int in_C, int in_H, int in_W, int out_
                             float weight_value = weight[((oc * in_C + ic) * K + kh) * K + kw];
                             partial_sum += in_value * weight_value;
 
-                            // 디버깅: 각 단계별 값 출력
-                            printf("in_value: [%f, %f, %f, %f], weight_value: [%f, %f, %f, %f]\n",
-                                in_value, in_value, in_value, in_value,
-                                weight_value, weight_value, weight_value, weight_value);
-                            printf("partial_sum: [%f, %f, %f, %f]\n", partial_sum, partial_sum, partial_sum, partial_sum);
+                            // 디버깅: 일부 단계별 값 출력 (최초 몇 개 요소만 출력)
+                            if (oh == 0 && ow == 0 && ic == 0 && kh == 0 && kw < 3) {
+                                printf("in_value: %f, weight_value: %f, partial_sum: %f\n",
+                                    in_value, weight_value, partial_sum);
+                            }
                         }
                     }
                 }
                 partial_sum += bias[oc];
                 output[(oc * out_H + oh) * out_W + ow] = partial_sum;
 
-                // 디버깅: 각 feature_out 값 출력
-                printf("Conv2 - partial_sum: [%f, %f, %f, %f], feature_out[%d]: %f\n",
-                    partial_sum, partial_sum, partial_sum, partial_sum,
-                    (oc * out_H + oh) * out_W + ow, output[(oc * out_H + oh) * out_W + ow]);
+                // 디버깅: 각 feature_out 값 출력 (일부 요소만)
+                if (oh == 0 && ow < 3) {
+                    printf("Conv2 - partial_sum: %f, feature_out[%d]: %f\n",
+                        partial_sum, (oc * out_H + oh) * out_W + ow, output[(oc * out_H + oh) * out_W + ow]);
+                }
             }
         }
     }
 }
 
-void ReLU(float* feature_in, int elem_num) {
-    float32x4_t zero_vector = vdupq_n_f32(0.0f); // Initialize zero vector
-    int i;
-
-    for (i = 0; i < elem_num; i += 4) {
-        float32x4_t in_vector = vld1q_f32(&feature_in[i]); // Load 4 elements from feature_in
-        uint32x4_t condition = vcltq_f32(in_vector, zero_vector); // Compare in_vector with zero_vector
-        float32x4_t result = vbslq_f32(condition, zero_vector, in_vector); // Select between zero_vector and in_vector
-        vst1q_f32(&feature_in[i], result); // Store the result back to feature_in
+// ReLU 함수 디버깅 추가
+void ReLU(float* input, int size) {
+    for (int i = 0; i < size; i++) {
+        input[i] = fmaxf(0, input[i]);
     }
 
-    // Handle the remaining elements
-    for (; i < elem_num; i++) {
-        if (feature_in[i] < 0) {
-            feature_in[i] = 0;
-        }
+    // 디버깅: ReLU 후 출력 확인
+    printf("ReLU Output:\n");
+    for (int i = 0; i < size; i++) {
+        printf("%f ", input[i]);
     }
+    printf("\n");
 }
 
-void Linear(float* feature_in, float* feature_out, float* weight, float* bias) {
+// Linear 함수 디버깅 추가
+void Linear(float* input, float* output, float* weight, float* bias) {
     for (int i = 0; i < CLASS; i++) {
-        float32x4_t partial_sum = vdupq_n_f32(0.0f); // Initialize partial sum vector to 0
-
-        for (int j = 0; j < I3_C * I3_H * I3_W; j += 4) {
-            float32x4_t in_vector = vld1q_f32(&feature_in[j]); // Load 4 elements from feature_in
-            float32x4_t weight_vector = vld1q_f32(&weight[i * I3_C * I3_H * I3_W + j]); // Load 4 elements from weight
-            partial_sum = vmlaq_f32(partial_sum, in_vector, weight_vector); // Multiply and accumulate
+        output[i] = bias[i];
+        for (int j = 0; j < I3_C * I3_H * I3_W; j++) {
+            output[i] += input[j] * weight[i * (I3_C * I3_H * I3_W) + j];
         }
-
-        // Horizontal addition of the 4 elements in the vector
-        float32x2_t sum_pair = vadd_f32(vget_low_f32(partial_sum), vget_high_f32(partial_sum));
-        float sum = vget_lane_f32(vpadd_f32(sum_pair, sum_pair), 0);
-
-        feature_out[i] = sum + bias[i]; // Add bias
     }
+
+    // 디버깅: Linear 후 출력 확인
+    printf("Linear Output:\n");
+    for (int i = 0; i < CLASS; i++) {
+        printf("%f ", output[i]);
+    }
+    printf("\n");
 }
 
 void Log_softmax(float* activation) {
