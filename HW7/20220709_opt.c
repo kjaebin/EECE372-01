@@ -262,32 +262,21 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
-                float sum = 0;
+                float sum = 0.0f;
+
+                int ih_base = oh * S;
+                int iw_base = ow * S;
 
                 for (int ic = 0; ic < in_C; ic++) {
+                    float* weight_base = &weight[oc * in_C * K * K + ic * K * K];
+                    float* input_base = &feature_in[ic * in_H * in_W];
+
                     for (int kh = 0; kh < K; kh++) {
                         for (int kw = 0; kw < K; kw++) {
-                            int ih = oh * S + kh;
-                            int iw = ow * S + kw;
-                            float in_val = feature_in[ic * in_H * in_W + ih * in_W + iw];
-                            float wt_val = weight[oc * in_C * K * K + ic * K * K + kh * K + kw];
-
-                            // Inline assembly to perform the multiply and accumulate
-                            asm volatile (
-                                "flds s0, %1            \n" // Load in_val to s0
-                                "flds s1, %2            \n" // Load wt_val to s1
-                                "fmuls s2, s0, s1       \n" // Multiply s0 and s1, store result in s2
-                                "flds s3, %0            \n" // Load sum to s3
-                                "fadds s3, s3, s2       \n" // Add s2 to s3
-                                "fsts s3, %0            \n" // Store s3 back to sum
-                                : "+m" (sum)           // Output
-                                : "m" (in_val), "m" (wt_val) // Input
-                                : "s0", "s1", "s2", "s3" // Clobbered registers
-                            );
+                            sum += input_base[(ih_base + kh) * in_W + (iw_base + kw)] * weight_base[kh * K + kw];
                         }
                     }
                 }
-
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum + bias[oc];
             }
         }
