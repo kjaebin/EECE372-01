@@ -316,8 +316,7 @@ void Linear(float* feature_in, float* feature_out, float* weight, float* bias) {
         }
 
         // Horizontal addition of the 4 elements in the vector
-        float32x2_t sum_pair = vadd_f32(vget_low_f32(partial_sum), vget_high_f32(partial_sum));
-        float sum = vget_lane_f32(vpadd_f32(sum_pair, sum_pair), 0);
+        float sum = vaddvq_f32(partial_sum);
 
         feature_out[i] = sum + bias[i]; // Add bias
     }
