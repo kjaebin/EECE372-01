@@ -147,6 +147,17 @@ int main(int argc, char* argv[]) {
     else if (atoi(argv[1]) == 2) {
         file = "example_2.bmp";
     }
+    //
+    else if (atoi(argv[1]) == 3) {
+        file = "example_3.bmp";
+    }
+    else if (atoi(argv[1]) == 4) {
+        file = "example_4.bmp";
+    }
+    else if (atoi(argv[1]) == 5) {
+        file = "test.bmp";
+    }
+    //
     else {
         printf("Wrong Input!\n");
         exit(1);
