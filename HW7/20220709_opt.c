@@ -334,8 +334,13 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                         input_ptr += in_W;
                     }
                 }
-                // 수평 덧셈을 사용하여 벡터의 모든 요소를 합산하고 bias를 추가
-                float sum = vaddvq_f32(sum_vec) + bias[oc];
+
+                // Manually perform horizontal addition
+                float32x2_t sum_vec_low = vget_low_f32(sum_vec);
+                float32x2_t sum_vec_high = vget_high_f32(sum_vec);
+                float32x2_t sum_pair = vpadd_f32(sum_vec_low, sum_vec_high);
+                float sum = vget_lane_f32(vpadd_f32(sum_pair, sum_pair), 0) + bias[oc];
+
                 feature_out[oc * out_H * out_W + oh * out_W + ow] = sum;
             }
         }
