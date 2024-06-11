@@ -311,8 +311,8 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
 
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
     int in_HW = in_H * in_W;
-    int out_HW = out_H * out_W;
     int K2 = K * K;
+    int out_HW = out_H * out_W;
 
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
@@ -322,15 +322,16 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                 int iw_base = ow * S;
 
                 for (int ic = 0; ic < in_C; ic++) {
-                    float* weight_ptr = &weight[oc * in_C * K2 + ic * K2];
-                    float* input_ptr = &feature_in[ic * in_HW + ih_base * in_W + iw_base];
+                    float* weight_base = &weight[oc * in_C * K2 + ic * K2];
+                    float* input_base = &feature_in[ic * in_HW];
 
                     for (int kh = 0; kh < K; kh++) {
+                        float* weight_ptr = weight_base + kh * K;
+                        float* input_ptr = input_base + (ih_base + kh) * in_W + iw_base;
+
                         for (int kw = 0; kw < K; kw++) {
                             sum += input_ptr[kw] * weight_ptr[kw];
                         }
-                        weight_ptr += K;
-                        input_ptr += in_W;
                     }
                 }
                 feature_out[oc * out_HW + oh * out_W + ow] = sum + bias[oc];
