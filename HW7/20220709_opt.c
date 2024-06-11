@@ -412,17 +412,35 @@ void Log_softmax(float* activation) {
 }
 
 int Get_pred(float* activation) {
-    /*          PUT YOUR CODE HERE          */
-    // Get_pred input : float *activation
-    // Get_pred output: int pred
     int pred = 0;
+    float32x4_t max_vec = vld1q_f32(activation); // 첫 4개 요소를 로드
     float max_val = activation[0];
-    for (int i = 1; i < CLASS; i++) {
+
+    // 4개씩 비교
+    for (int i = 4; i < CLASS; i += 4) {
+        float32x4_t cur_vec = vld1q_f32(&activation[i]);
+        uint32x4_t mask = vcgtq_f32(cur_vec, max_vec); // cur_vec > max_vec
+        max_vec = vbslq_f32(mask, cur_vec, max_vec); // 큰 값을 max_vec에 저장
+    }
+
+    // max_vec의 4개 요소 중 최대값을 찾음
+    float max_vals[4];
+    vst1q_f32(max_vals, max_vec);
+    for (int i = 0; i < 4; i++) {
+        if (max_vals[i] > max_val) {
+            max_val = max_vals[i];
+            pred = (max_val == max_vals[0]) ? 0 : (max_val == max_vals[1]) ? 1 : (max_val == max_vals[2]) ? 2 : 3;
+        }
+    }
+
+    // 남은 요소를 비교
+    for (int i = CLASS - (CLASS % 4); i < CLASS; i++) {
         if (activation[i] > max_val) {
             max_val = activation[i];
             pred = i;
         }
     }
+
     return pred;
 }
 
