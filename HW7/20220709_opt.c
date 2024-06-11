@@ -2,8 +2,6 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 
-#include <arm_neon.h> // NEON 라이브러리 추가
-
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -133,14 +131,7 @@ int main(int argc, char* argv[]) {
     int pred = 0;
     Gray_scale(feature_in, feature_gray);
     Normalized(feature_gray, feature_scaled);
-    
-    // 디버깅: feature_scaled 출력
-    printf("feature_scaled 데이터:\n");
-    for (int i = 0; i < I1_C * I1_H * I1_W; i++) {
-        printf("%f ", feature_scaled[i]);
-        if ((i + 1) % I1_W == 0) printf("\n");
-    }
-
+    /***************      Implement these functions      ********************/
     start1 = clock();
     start_padding = clock();
     Padding(feature_scaled, feature_padding1, I1_C, I1_H, I1_W);
@@ -159,13 +150,6 @@ int main(int argc, char* argv[]) {
     Conv_2d(feature_padding2, feature_conv2_out, I2_C, I2_H + 2, I2_W + 2, I3_C, I3_H, I3_W, CONV2_KERNAL, CONV2_STRIDE, net.conv2_weight, net.conv2_bias);
     end_conv2 = clock();
 
-    // 디버깅: feature_conv2_out 출력
-    printf("feature_conv2_out 데이터:\n");
-    for (int i = 0; i < I3_C * I3_H * I3_W; i++) {
-        printf("%f ", feature_conv2_out[i]);
-        if ((i + 1) % I3_W == 0) printf("\n");
-    }
-
     start_relu2 = clock();
     ReLU(feature_conv2_out, I3_C * I3_H * I3_W);
     end_relu2 = clock();
@@ -181,7 +165,7 @@ int main(int argc, char* argv[]) {
     pred = Get_pred(fc_out);
     Get_CAM(feature_conv2_out, cam, pred, net.fc_weight);
     end2 = clock() - start2;
-
+    /************************************************************************/
     save_image(feature_scaled, cam);
 
     setup_gpio();
@@ -249,7 +233,7 @@ void Normalized(unsigned char* feature_in, float* feature_out) {
     return;
 }
 
-void Padding(float* input, float* output, int C, int H, int W) {
+void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
     /* NEON을 사용하여 zero padding 구현 */
     float32x4_t zero_vector = vdupq_n_f32(0.0); // 0으로 구성된 벡터 생성
 
@@ -295,7 +279,7 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
     }
 }
 
-void ReLU(float* input, int size) {
+void ReLU(float* feature_in, int elem_num) {
     float32x4_t zero_vector = vdupq_n_f32(0.0f); // Initialize zero vector
     int i;
 
@@ -314,7 +298,7 @@ void ReLU(float* input, int size) {
     }
 }
 
-void Linear(float* input, float* output, float* weight, float* bias) {
+void Linear(float* feature_in, float* feature_out, float* weight, float* bias) {
     for (int i = 0; i < CLASS; i++) {
         float32x4_t partial_sum = vdupq_n_f32(0.0f); // Initialize partial sum vector to 0
 
