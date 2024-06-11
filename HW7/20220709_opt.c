@@ -290,7 +290,7 @@ void Conv_2d(float* input, float* output, int in_C, int in_H, int in_W, int out_
                             float weight_value = weight[((oc * in_C + ic) * K + kh) * K + kw];
                             partial_sum += in_value * weight_value;
 
-                            // 디버깅: 일부 단계별 값 출력 (최초 몇 개 요소만 출력)
+                            // Debugging: output intermediate values
                             if (oh == 0 && ow == 0 && ic == 0 && kh == 0 && kw < 3) {
                                 printf("in_value: %f, weight_value: %f, partial_sum: %f\n",
                                     in_value, weight_value, partial_sum);
@@ -301,7 +301,7 @@ void Conv_2d(float* input, float* output, int in_C, int in_H, int in_W, int out_
                 partial_sum += bias[oc];
                 output[(oc * out_H + oh) * out_W + ow] = partial_sum;
 
-                // 디버깅: 각 feature_out 값 출력 (일부 요소만)
+                // Debugging: output each value of feature_out (only some elements)
                 if (oh == 0 && ow < 3) {
                     printf("Conv2 - partial_sum: %f, feature_out[%d]: %f\n",
                         partial_sum, (oc * out_H + oh) * out_W + ow, output[(oc * out_H + oh) * out_W + ow]);
