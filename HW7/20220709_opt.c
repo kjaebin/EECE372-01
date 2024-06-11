@@ -236,6 +236,7 @@ int main(int argc, char* argv[]) {
     printf("Total time (excluding Softmax): %9.3lf[us]\n", (double)end1 / CLOCKS_PER_US);
     printf("CAM time: %9.3lf[us]\n", (double)end2 / CLOCKS_PER_US);
     printf("Total time (including CAM): %9.3lf[us]\n", (double)(end1 + end2) / CLOCKS_PER_US);
+    printf("\n");
 
     printf("Log softmax value\n");
     for (int i = 0; i < CLASS; i++) {
@@ -309,6 +310,9 @@ void Padding(float* feature_in, float* feature_out, int C, int H, int W) {
 }
 
 void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
+    int in_HW = in_H * in_W;
+    int K2 = K * K;
+
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
@@ -317,8 +321,8 @@ void Conv_2d(float* feature_in, float* feature_out, int in_C, int in_H, int in_W
                 int iw_base = ow * S;
 
                 for (int ic = 0; ic < in_C; ic++) {
-                    float* weight_base = &weight[oc * in_C * K * K + ic * K * K];
-                    float* input_base = &feature_in[ic * in_H * in_W];
+                    float* weight_base = &weight[oc * in_C * K2 + ic * K2];
+                    float* input_base = &feature_in[ic * in_HW];
 
                     // 첫 번째 커널 행
                     float* weight_ptr = weight_base;
