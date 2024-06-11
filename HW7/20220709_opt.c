@@ -274,6 +274,11 @@ void Padding(float* input, float* output, int C, int H, int W) {
 
 void Conv_2d(float* input, float* output, int in_C, int in_H, int in_W, int out_C, int out_H, int out_W, int K, int S, float* weight, float* bias) {
     int pad = (K - 1) / 2;
+    // output 배열을 0으로 초기화합니다.
+    for (int i = 0; i < out_C * out_H * out_W; i++) {
+        output[i] = 0.0;
+    }
+
     for (int oc = 0; oc < out_C; oc++) {
         for (int oh = 0; oh < out_H; oh++) {
             for (int ow = 0; ow < out_W; ow++) {
@@ -289,19 +294,13 @@ void Conv_2d(float* input, float* output, int in_C, int in_H, int in_W, int out_
                             }
                             float weight_value = weight[((oc * in_C + ic) * K + kh) * K + kw];
                             partial_sum += in_value * weight_value;
-
-                            // Debugging: output intermediate values
-                            if (oh == 0 && ow == 0 && ic == 0 && kh == 0 && kw < 3) {
-                                printf("in_value: %f, weight_value: %f, partial_sum: %f\n",
-                                    in_value, weight_value, partial_sum);
-                            }
                         }
                     }
                 }
                 partial_sum += bias[oc];
                 output[(oc * out_H + oh) * out_W + ow] = partial_sum;
 
-                // Debugging: output each value of feature_out (only some elements)
+                // 디버깅: 각 feature_out 값 출력 (일부 요소만)
                 if (oh == 0 && ow < 3) {
                     printf("Conv2 - partial_sum: %f, feature_out[%d]: %f\n",
                         partial_sum, (oc * out_H + oh) * out_W + ow, output[(oc * out_H + oh) * out_W + ow]);
