@@ -427,13 +427,24 @@ int Get_pred(float* activation) {
 }
 
 void Get_CAM(float* activation, float* cam, int pred, float* weight) {
-    /*          PUT YOUR CODE HERE          */
-    // Get_CAM input : float *activation
-    // Get_CAM output: float *cam
-    for (int i = 0; i < I3_H * I3_W; i++) {
-        cam[i] = 0;
-        for (int j = 0; j < I3_C; j++) {
-            cam[i] += activation[i + j * I3_H * I3_W] * weight[pred * I3_C * I3_H * I3_W + i + j * I3_H * I3_W];
+    int size = I3_H * I3_W;
+    int weight_offset = pred * I3_C * size;
+
+    // Initialize cam to zero
+    memset(cam, 0, size * sizeof(float));
+
+    for (int j = 0; j < I3_C; j++) {
+        float* activation_ptr = activation + j * size;
+        float* weight_ptr = weight + weight_offset + j * size;
+
+        for (int i = 0; i < size; i += 4) {
+            float32x4_t activation_vec = vld1q_f32(activation_ptr + i);
+            float32x4_t weight_vec = vld1q_f32(weight_ptr + i);
+            float32x4_t cam_vec = vld1q_f32(cam + i);
+
+            cam_vec = vmlaq_f32(cam_vec, activation_vec, weight_vec);
+
+            vst1q_f32(cam + i, cam_vec);
         }
     }
 }
